@@ -10,15 +10,17 @@ export default function HomePage() {
   const router = useRouter();
 
   const commonIssues = [
-    'General Checkup',
+    'Primary Care',
+    'General Healthcare',
     'Mental Health',
-    'Urgent Care',
+    'Emergency Care',
     'Dental Care',
     'Eye Care',
     'Women\'s Health',
     'Pediatric Care',
     'Chronic Conditions',
-    'Preventive Care'
+    'Preventive Care',
+    'Pharmacy'
   ];
 
   const handleSearch = (e: React.FormEvent) => {

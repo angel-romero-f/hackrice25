@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { MapPin, Heart, Search, ChevronDown } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
   const [zipCode, setZipCode] = useState('');
   const [healthIssue, setHealthIssue] = useState('');
+  const router = useRouter();
 
   const commonIssues = [
     'General Checkup',
@@ -21,8 +23,20 @@ export default function HomePage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle search logic here
-    console.log('Searching for:', { zipCode, healthIssue });
+    if (!zipCode.trim()) {
+      alert('Please enter a ZIP code or location');
+      return;
+    }
+    if (!healthIssue) {
+      alert('Please select a health concern');
+      return;
+    }
+
+    const searchParams = new URLSearchParams({
+      zip: zipCode,
+      issue: healthIssue
+    });
+    router.push(`/search?${searchParams.toString()}`);
   };
 
   return (

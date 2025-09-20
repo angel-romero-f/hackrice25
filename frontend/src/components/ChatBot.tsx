@@ -18,6 +18,7 @@ interface ChatBotMessageBody {
   user_id: string;
   message: string;
   session_id?: string;
+  [key: string]: unknown;
 }
 
 // Local message representation for UI
@@ -119,7 +120,7 @@ const ChatBot: React.FC = () => {
       // Append bot response
       const botMsg: ChatMessage = { id: `b_${Date.now()}`, role: 'bot', text: res.response };
       setMessages(prev => [...prev, botMsg]);
-    } catch (err) {
+    } catch {
       const errText = messageApi.error || 'Something went wrong. Please try again.';
       setMessages(prev => [
         ...prev,
@@ -132,7 +133,7 @@ const ChatBot: React.FC = () => {
     if (!sessionId) return;
     try {
       await endSessionApi.delete(`${CHATBOT_BASE}/session/${sessionId}`);
-    } catch (_) {
+    } catch {
       // Non-fatal; we still clear local state
     }
     // Clear local session and messages

@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import useApi, { PostRequestBody, GetRequestParams } from './useApi';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface Clinic {
   _id: string;
   name: string;
@@ -18,6 +20,7 @@ interface Clinic {
   distance_meters?: number;
   rating?: number;
   user_ratings_total?: number;
+  image_urls?: string[];
   location?: {
     type: 'Point';
     coordinates: [number, number];
@@ -99,7 +102,7 @@ const useClinics = () => {
   // Get specific clinic by ID (GET /clinics/:id)
   const getClinicById = useCallback(async (clinicId: string) => {
     // Create a new API instance for single clinic fetching
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/clinics/${clinicId}`);
+    const response = await fetch(`${API_BASE_URL}/clinics/${clinicId}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch clinic: ${response.statusText}`);
     }

@@ -5,7 +5,12 @@
       "Bash(npx create-next-app:*)",
       "WebFetch(domain:www.zocdoc.com)",
       "Bash(npm run lint)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebFetch(domain:developers.google.com)",
+      "Bash(git checkout:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

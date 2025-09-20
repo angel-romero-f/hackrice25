@@ -8,6 +8,7 @@ import googlemaps
 from pymongo import MongoClient
 from typing import Optional, List
 from pydantic import BaseModel
+from fastapi import Query
 import uvicorn
 
 load_dotenv()
@@ -31,7 +32,7 @@ app.add_middleware(
 try:
     # MongoDB
     mongo_client = MongoClient(os.getenv("MONGODB_URI"))
-    db = mongo_client.care_compass
+    db = mongo_client.carecompass
     clinics_collection = db.clinics
     
     # Google Maps
@@ -50,6 +51,9 @@ class ClinicSearch(BaseModel):
     radius_miles: Optional[int] = 10
     languages: Optional[List[str]] = None
     walk_in_only: Optional[bool] = False
+    lgbtq_friendly: Optional[bool] = None
+    immigrant_safe: Optional[bool] = None
+    limit: Optional[int] = 20
 
 class ChatQuery(BaseModel):
     message: str
@@ -81,38 +85,12 @@ async def health_check():
         "gemini": "configured" if os.getenv("GEMINI_API_KEY") else "not configured"
     }}
 
-@app.post("/search/clinics")
-async def search_clinics(search: ClinicSearch):
-    """Search for clinics based on location and filters"""
+@app.get("/clinics")
+async def get_all_clinics(limit: Optional[int] = Query(20, description="Maximum number of clinics to return", le=100)):
+    """Get all clinics without location filtering"""
     try:
-        # Geocode the location
-        geocode_result = gmaps.geocode(search.location)
-        if not geocode_result:
-            raise HTTPException(status_code=400, detail="Location not found")
-        
-        lat = geocode_result[0]['geometry']['location']['lat']
-        lng = geocode_result[0]['geometry']['location']['lng']
-        
-        # Build MongoDB query
-        query = {}
-        if search.service_type:
-            query["services"] = {"$regex": search.service_type, "$options": "i"}
-        if search.languages:
-            query["languages"] = {"$in": search.languages}
-        if search.walk_in_only:
-            query["walk_in_accepted"] = True
-        
-        # For now, return all matching clinics (in production, add geospatial queries)
-        clinics = list(clinics_collection.find(query, {"_id": 0}))
-        
-        return {
-            "location": {
-                "lat": lat,
-                "lng": lng,
-                "formatted_address": geocode_result[0]['formatted_address']
-            },
-            "clinics": clinics[:20]  # Limit to 20 results
-        }
+        clinics = list(clinics_collection.find({}, {"_id": 0}).limit(limit))
+        return clinics
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -142,6 +120,72 @@ async def chat_with_ai(query: ChatQuery):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+
+@app.post("/clinics/search")
+async def search_clinics_filtered(search: ClinicSearch):
+    """Search for clinics based on location and detailed filters"""
+    try:
+        # Geocode the location
+        geocode_result = gmaps.geocode(search.location)
+        if not geocode_result:
+            raise HTTPException(status_code=400, detail="Location not found")
+
+        lat = geocode_result[0]['geometry']['location']['lat']
+        lng = geocode_result[0]['geometry']['location']['lng']
+
+        # Build MongoDB query with geospatial search
+        query = {}
+
+        # Geospatial query using radius in meters
+        radius_meters = (search.radius_miles or 10) * 1609.34  # Convert miles to meters
+        query["location"] = {
+            "$geoWithin": {
+                "$centerSphere": [[lng, lat], radius_meters / 6378100]  # Earth radius in meters
+            }
+        }
+
+        # Add filter conditions
+        if search.service_type:
+            query["services"] = {"$regex": search.service_type, "$options": "i"}
+        if search.languages:
+            query["languages"] = {"$in": search.languages}
+        if search.walk_in_only:
+            query["walk_in_accepted"] = True
+        if search.lgbtq_friendly is not None:
+            query["lgbtq_friendly"] = search.lgbtq_friendly
+        if search.immigrant_safe is not None:
+            query["immigrant_safe"] = search.immigrant_safe
+
+        # Apply limit with a maximum cap
+        limit = min(search.limit or 20, 100)
+
+        # Execute query and sort by distance
+        clinics_cursor = clinics_collection.aggregate([
+            {"$geoNear": {
+                "near": {"type": "Point", "coordinates": [lng, lat]},
+                "distanceField": "distance_meters",
+                "maxDistance": radius_meters,
+                "query": {k: v for k, v in query.items() if k != "location"},
+                "spherical": True
+            }},
+            {"$limit": limit},
+            {"$project": {"_id": 0}}
+        ])
+
+        clinics = list(clinics_cursor)
+
+        return {
+            "location": {
+                "lat": lat,
+                "lng": lng,
+                "formatted_address": geocode_result[0]['formatted_address']
+            },
+            "clinics": clinics,
+            "total_found": len(clinics),
+            "search_radius_miles": search.radius_miles or 10
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/clinics")
 async def add_clinic(clinic: Clinic):

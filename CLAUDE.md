@@ -42,7 +42,8 @@ To connect uninsured individuals to affordable healthcare by providing:
 
 ### API Endpoints
 - `GET /health` - Health check for all services
-- `POST /search/clinics` - Search clinics by location and filters
+- `GET /clinics` - Get all clinics (simple array response)
+- `POST /clinics/search` - Search clinics by location and filters (preferred for frontend forms)
 - `POST /chat` - AI-powered healthcare guidance
 - `POST /clinics` - Add new clinic to database
 - `GET /clinics/{id}` - Get specific clinic details
@@ -74,6 +75,11 @@ To connect uninsured individuals to affordable healthcare by providing:
 cd backend
 source venv/bin/activate  # IMPORTANT: Always activate virtual environment first
 pip install -r requirements.txt
+
+# For refactored structure (recommended for team development):
+python -m app.main  # Runs on http://localhost:8000
+
+# For legacy single file:
 python main.py  # Runs on http://localhost:8000
 ```
 
@@ -127,7 +133,9 @@ npm run lint
 - ✅ MongoDB Atlas database setup completed
 - ✅ Google Maps API configured (Places, Geocoding, Maps JavaScript APIs)
 - ✅ Environment variables configured in backend/.env
-- 🔄 Clinic data seeding system implementation
+- ✅ Clinic data seeding system implementation (seeder.py completed)
+- ✅ Geospatial search with MongoDB working correctly
+- ✅ Refactored code into organized folder structure for team development
 - 🔄 Weekly automated data refresh system
 - 🔄 API integration between frontend/backend
 - 🔄 Gemini API setup
@@ -162,9 +170,26 @@ npm run lint
 ```
 hackrice25/
 ├── backend/
-│   ├── main.py              # FastAPI application
-│   ├── requirements.txt     # Python dependencies
-│   └── .env.example        # Environment template
+│   ├── app/                 # Organized backend structure (recommended)
+│   │   ├── __init__.py
+│   │   ├── main.py         # FastAPI app setup
+│   │   ├── config.py       # Environment variables
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   └── clinic.py   # Pydantic models
+│   │   ├── routes/
+│   │   │   ├── __init__.py
+│   │   │   ├── clinics.py  # Clinic endpoints
+│   │   │   └── chat.py     # AI chat endpoints
+│   │   └── services/
+│   │       ├── __init__.py
+│   │       ├── database.py # MongoDB connection
+│   │       ├── maps.py     # Google Maps service
+│   │       └── ai.py       # Gemini AI service
+│   ├── main.py             # Legacy single file (still works)
+│   ├── seeder.py           # Data seeding script
+│   ├── requirements.txt    # Python dependencies
+│   └── .env               # Environment variables
 ├── frontend/
 │   ├── src/app/
 │   │   └── page.tsx        # Landing page
@@ -185,4 +210,13 @@ hackrice25/
 - Follow healthcare industry best practices for disclaimers
 - The reason pip isn't working is because you need to have activated the virtual environment. please try it with this in mind and remember this in the claude.md file
 - Don't put the comments of the directories at the top of the files
-- don't use emojis in comments
+- Don't use emojis in comments
+
+## MongoDB Query Fixes Applied
+- **Database Name**: Fixed mismatch between seeder.py (`carecompass`) and main.py (`care_compass`) - now both use `carecompass`
+- **Geospatial Search**: Implemented proper MongoDB geospatial queries using `$geoNear` aggregation pipeline
+- **Distance Calculation**: Added distance_meters field to search results showing actual distance from search location
+- **Environment File**: Renamed `.local.env` to `.env` so dotenv can find it properly
+- **Data Structure**: Clinic data includes GeoJSON Point coordinates for proper geospatial indexing
+- **Radius Filtering**: Properly converts miles to meters and filters results within specified radius
+- **Search Endpoint**: Use POST `/clinics/search` instead of GET with query params for better frontend integration

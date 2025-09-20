@@ -98,7 +98,7 @@ npm run lint
 - `MONGODB_URI` - MongoDB Atlas connection string
 - `GOOGLE_MAPS_API_KEY` - For geocoding and maps
 - `GEMINI_API_KEY` - For AI chat functionality
-- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID for storage
+- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID for storage (rice-hackathon25iah-606)
 - `GOOGLE_CLOUD_STORAGE_BUCKET` - Storage bucket name (default: care-compass-photos)
 
 ### Frontend (.env.local)
@@ -237,3 +237,105 @@ hackrice25/
 - **Error Handling**: Photo failures don't block clinic seeding - clinics added with empty image_urls arrays
 - **Cloud Run Ready**: Service account permissions configured for production deployment
 - **API Integration**: All existing endpoints now return `image_urls` field in clinic responses
+
+## Google Cloud Deployment Configuration
+- **Project ID**: rice-hackathon25iah-606
+- **Region**: us-central1
+- **Service**: care-compass-api (Cloud Run)
+- **Environment Variables**: Configured directly in Cloud Run (not Secret Manager for hackathon simplicity)
+- **CORS Configuration**: Updated to allow Cloud Run URLs and testing with HTTPie
+- **Service Account**: Cloud Run service account with necessary permissions for Google Cloud Storage and APIs
+
+### Deployment Steps
+1. **Prerequisites**:
+   ```bash
+   gcloud auth login
+   gcloud config set project rice-hackathon25iah-606
+   ```
+
+2. **Deploy Backend**:
+   ```bash
+   cd backend
+   ./deploy.sh
+   ```
+
+3. **Set Environment Variables** (via Cloud Run Console):
+   - `MONGODB_URI`: Your MongoDB Atlas connection string
+   - `GOOGLE_MAPS_API_KEY`: Your Google Maps API key
+   - `GEMINI_API_KEY`: Your Google Gemini API key
+   - `GOOGLE_CLOUD_PROJECT`: rice-hackathon25iah-606 (auto-set by script)
+   - `GOOGLE_CLOUD_STORAGE_BUCKET`: care-compass-photos (auto-set by script)
+
+4. **Test Deployment**:
+   ```bash
+   # Get service URL from deployment output, then test:
+   http GET https://care-compass-api-[hash]-uc.a.run.app/health
+   http POST https://care-compass-api-[hash]-uc.a.run.app/clinics/search Content-Type:application/json location:="Houston, TX" radius:=10
+   ```
+
+### Environment Variable Setup via Console
+1. Go to [Cloud Run Console](https://console.cloud.google.com/run)
+2. Select `care-compass-api` service
+3. Click "Edit & Deploy New Revision"
+4. Scroll to "Variables & Secrets" tab
+5. Add environment variables listed above
+6. Deploy the new revision
+
+### Deployment Status Monitoring
+
+To check deployment status, you can:
+
+1. **Monitor deployment script output**: The `./deploy.sh` script shows real-time build progress
+2. **Cloud Build Console**: https://console.cloud.google.com/cloud-build/builds/93a02334-a62c-45b8-9c1b-43f0421a2a4c?project=1073423632565
+3. **Cloud Run Console**: https://console.cloud.google.com/run/detail/us-central1/care-compass-api?project=rice-hackathon25iah-606
+4. **Check service URL**: Once deployed, the service will be available at the Cloud Run URL
+
+### Cloud Run Deployment Process
+
+#### Step 1: Authenticate and Configure
+```bash
+gcloud auth login
+gcloud config set project rice-hackathon25iah-606
+```
+
+#### Step 2: Deploy with Fixed Configuration
+```bash
+cd backend
+./deploy.sh
+```
+
+#### Step 3: Monitor Build Progress
+The deployment includes:
+- ✅ Container build with Python 3.11-slim
+- ✅ System dependencies installation (gcc, build tools)
+- 🔄 Python dependencies installation (FastAPI, uvicorn, etc.)
+- 🔄 Container deployment to Cloud Run
+- 🔄 Service configuration and URL assignment
+
+#### Key Fixes Applied for Cloud Run Compatibility
+
+1. **Dockerfile Port Configuration**:
+   ```dockerfile
+   EXPOSE 8000
+   CMD ["python", "-c", "import uvicorn; import os; from app.main import app; uvicorn.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 8000)))"]
+   ```
+
+2. **Host Binding**: Explicitly bind to `0.0.0.0` (required for Cloud Run)
+3. **Port Environment**: Use Cloud Run's `PORT` environment variable
+4. **CORS Configuration**: Allow wildcard origins for testing
+
+### Common Issues & Solutions
+- **CORS Errors**: Updated CORS to allow all origins for testing
+- **Authentication**: Uses Application Default Credentials (automatic in Cloud Run)
+- **Port Binding Issues**: Fixed with explicit uvicorn command and 0.0.0.0 host binding
+- **Container Startup**: Cloud Run requires proper host/port configuration
+- **Cold Starts**: Set min-instances to 0 for cost optimization during hackathon
+- **Memory**: Allocated 1GB RAM for image processing and AI operations
+
+### Post-Deployment Setup
+1. Set environment variables in Cloud Run console:
+   - `MONGODB_URI`
+   - `GOOGLE_MAPS_API_KEY`
+   - `GEMINI_API_KEY`
+2. Test endpoints with HTTPie: `http GET <service-url>/health`
+3. Update frontend `NEXT_PUBLIC_API_URL` with deployed service URL

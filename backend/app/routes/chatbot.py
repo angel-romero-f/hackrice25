@@ -50,12 +50,13 @@ async def send_message(message_data: ChatBotMessage):
     """Send a message to the chatbot and get a response"""
     try:
         # If no session_id provided, create a new session
-        logger.info("No session ID provided... creating session ID.")
         if not message_data.session_id:
+            logger.info("No session ID provided... creating session ID.")
             session_id = chatbot_service.create_session(message_data.user_id)
+            logger.info("Created new session ID... process the message")
         else:
             session_id = message_data.session_id
-        logger.info("Created session ID... process the message")
+            logger.info(f"Using existing session ID: {session_id}... process the message")
 
         # Process the message
         result = await chatbot_service.process_message(session_id, message_data.message)

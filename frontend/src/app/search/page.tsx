@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Filter, Star, Clock, DollarSign, Heart, ArrowLeft, Users, Shield, Phone, Globe, CheckCircle, MapPin } from 'lucide-react';
+import { Filter, Star, Clock, DollarSign, Heart, ArrowLeft, Users, Shield, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import ClinicList from '../../components/ClinicList';
 import useClinics from '../../hooks/useClinics';
@@ -103,53 +103,6 @@ function SearchContent() {
 
   // Since we're doing server-side filtering, use clinics directly
   const filteredClinics = Array.isArray(clinics) ? clinics : [];
-
-  const formatDistance = (meters?: number) => {
-    if (!meters) return '';
-    const miles = meters * 0.000621371;
-    return `${miles.toFixed(1)} mi`;
-  };
-
-  const extractPrice = (pricing_info?: string) => {
-    if (!pricing_info) return 'Contact for pricing';
-
-    // Check for free services
-    if (pricing_info.toLowerCase().includes('free')) {
-      return 'Free services available';
-    }
-
-    // Check for sliding scale
-    if (pricing_info.toLowerCase().includes('sliding')) {
-      return 'Sliding scale pricing';
-    }
-
-    // Extract specific price
-    const match = pricing_info.match(/\$(\d+)/);
-    if (match) {
-      return `From $${match[1]}`;
-    }
-
-    // Truncate long pricing info
-    return pricing_info.length > 30 ? pricing_info.substring(0, 30) + '...' : pricing_info;
-  };
-
-  const renderStars = (rating?: number) => {
-    if (!rating) return null;
-
-    return (
-      <div className="flex items-center space-x-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`h-4 w-4 ${
-              star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-            }`}
-          />
-        ))}
-        <span className="text-sm text-gray-600 ml-1">({rating.toFixed(1)})</span>
-      </div>
-    );
-  };
 
 
   return (

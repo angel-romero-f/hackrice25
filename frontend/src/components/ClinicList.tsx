@@ -44,9 +44,9 @@ export default function ClinicList({ clinics, loading }: ClinicListProps) {
   return (
     <div className="w-full">
       <div className="space-y-4 w-full">
-        {clinics.map((clinic) => (
+        {clinics.map((clinic, index) => (
           <ClinicCard
-            key={clinic._id}
+            key={clinic._id || `clinic-${index}`}
             clinic={clinic}
           />
         ))}

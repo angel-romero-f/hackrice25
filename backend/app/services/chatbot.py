@@ -11,7 +11,8 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 
 import google.generativeai as genai
-from app.config import GEMINI_API_KEY
+import googlemaps
+from app.config import GEMINI_API_KEY, GOOGLE_MAPS_API_KEY
 from app.services.database import clinics_collection
 
 class ConversationState(Enum):
@@ -20,6 +21,7 @@ class ConversationState(Enum):
     LOCATION_SEARCH = "location_search"
     SERVICE_INQUIRY = "service_inquiry"
     CLINIC_DISCUSSION = "clinic_discussion"
+    CLINIC_ANALYSIS = "clinic_analysis"
     INSURANCE_HELP = "insurance_help"
     EMERGENCY_GUIDANCE = "emergency_guidance"
     GENERAL_HEALTH = "general_health"
@@ -61,6 +63,7 @@ class HealthcareIntentClassifier:
         'insurance_help': ['insurance', 'uninsured', 'cost', 'pay', 'free', 'sliding scale'],
         'emergency_guidance': ['emergency', 'urgent', 'pain', 'bleeding', 'chest pain', '911'],
         'clinic_discussion': ['clinic', 'hospital', 'appointment', 'hours', 'phone'],
+        'clinic_analysis': ['tell me about', 'reviews', 'what is', 'experiences', 'good clinic', 'recommend', 'thoughts on'],
         'general_health': ['symptoms', 'condition', 'treatment', 'medication', 'advice']
     }
 
@@ -160,6 +163,18 @@ class PromptTemplates:
     - Find contact information and hours
     """
 
+    CLINIC_ANALYSIS_PROMPT = """
+    The user wants to know about a specific clinic's reputation, reviews, or patient experiences.
+
+    You have the ability to fetch and analyze real patient reviews for clinics. When they mention a clinic name:
+    - Offer to look up reviews and patient experiences
+    - Provide analysis of what patients say about their experiences
+    - Give balanced insights about strengths and potential concerns
+    - Help them understand what to expect based on other patients' experiences
+
+    Focus on practical insights that help them make informed healthcare decisions.
+    """
+
 
 class ChatBotService:
     """Main chatbot service with conversation management and AI integration"""
@@ -168,6 +183,9 @@ class ChatBotService:
         # Configure Gemini AI
         genai.configure(api_key=GEMINI_API_KEY)
         self.model = genai.GenerativeModel('gemini-2.5-flash')
+
+        # Configure Google Maps for review fetching
+        self.gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
 
         # In-memory session storage (in production, use Redis or database)
         self.active_sessions: Dict[str, ChatSession] = {}
@@ -272,6 +290,28 @@ class ChatBotService:
 
         return None
 
+    def extract_clinic_name_from_message(self, message: str) -> Optional[str]:
+        """Extract potential clinic names from user message"""
+        import re
+
+        # Look for patterns that might indicate clinic names
+        clinic_patterns = [
+            r'(.*?(?:clinic|medical|health|urgent care|hospital|center).*?)(?:\s|$)',
+            r'(?:at|to|about)\s+([A-Z][a-zA-Z\s&.-]+(?:clinic|medical|health|urgent care|hospital|center))',
+            r'([A-Z][a-zA-Z\s&.-]+(?:urgent care|medical center|clinic|hospital))',
+        ]
+
+        message_cleaned = re.sub(r'\b(?:the|a|an)\b', '', message, flags=re.IGNORECASE)
+
+        for pattern in clinic_patterns:
+            matches = re.finditer(pattern, message_cleaned, re.IGNORECASE)
+            for match in matches:
+                clinic_name = match.group(1).strip()
+                if len(clinic_name) > 3 and len(clinic_name) < 50:  # Reasonable length
+                    return clinic_name
+
+        return None
+
     def update_conversation_state(self, session: ChatSession, user_message: str, intent: str) -> None:
         """Update conversation state based on user intent"""
         current_state = session.current_state
@@ -285,6 +325,12 @@ class ChatBotService:
             location = self.extract_location_from_message(user_message)
             if location:
                 session.user_location = location
+        elif intent == 'clinic_analysis':
+            session.current_state = ConversationState.CLINIC_ANALYSIS
+            # Extract and store clinic name if found
+            clinic_name = self.extract_clinic_name_from_message(user_message)
+            if clinic_name:
+                session.session_data['current_clinic'] = clinic_name
         elif intent == 'service_inquiry':
             session.current_state = ConversationState.SERVICE_INQUIRY
         elif intent == 'clinic_discussion':
@@ -306,6 +352,7 @@ class ChatBotService:
             ConversationState.INSURANCE_HELP: self.prompts.INSURANCE_HELP_PROMPT,
             ConversationState.EMERGENCY_GUIDANCE: self.prompts.EMERGENCY_GUIDANCE_PROMPT,
             ConversationState.CLINIC_DISCUSSION: self.prompts.CLINIC_DISCUSSION_PROMPT,
+            ConversationState.CLINIC_ANALYSIS: self.prompts.CLINIC_ANALYSIS_PROMPT,
         }
 
         specific_prompt = state_prompts.get(session.current_state, "")
@@ -327,6 +374,303 @@ class ChatBotService:
         context_parts.append("\nRespond helpfully and compassionately:")
 
         return "\n".join(context_parts)
+
+    async def fetch_clinic_reviews(self, clinic_name: str, clinic_address: str = None) -> Dict[str, Any]:
+        """Fetch reviews for a clinic using Google Places API"""
+        try:
+            # Search for the clinic
+            search_query = clinic_name
+            if clinic_address:
+                search_query += f" {clinic_address}"
+
+            places_result = self.gmaps.places(query=search_query)
+
+            if not places_result.get('results'):
+                return {"reviews": [], "place_id": None, "error": "Clinic not found"}
+
+            place = places_result['results'][0]
+            place_id = place.get('place_id')
+
+            if not place_id:
+                return {"reviews": [], "place_id": None, "error": "No place ID found"}
+
+            # Get detailed place information including reviews
+            place_details = self.gmaps.place(
+                place_id=place_id,
+                fields=['reviews', 'rating', 'user_ratings_total', 'name']
+            )
+
+            reviews = place_details.get('result', {}).get('reviews', [])
+
+            return {
+                "reviews": reviews,
+                "place_id": place_id,
+                "clinic_name": place_details.get('result', {}).get('name', clinic_name),
+                "rating": place_details.get('result', {}).get('rating'),
+                "total_ratings": place_details.get('result', {}).get('user_ratings_total', 0)
+            }
+
+        except Exception as e:
+            return {"reviews": [], "place_id": None, "error": str(e)}
+
+    async def analyze_clinic_sentiment(self, clinic_name: str, review_data: Dict[str, Any]) -> str:
+        """Generate sentiment analysis and clinic summary using Gemini"""
+        try:
+            reviews = review_data.get('reviews', [])
+            clinic_rating = review_data.get('rating', 0)
+            total_ratings = review_data.get('total_ratings', 0)
+
+            if not reviews:
+                return f"""
+                **{clinic_name}** - Limited Review Data Available
+
+                Google Rating: {clinic_rating}/5.0 ({total_ratings} reviews)
+
+                I don't have enough detailed reviews to provide a comprehensive analysis of patient experiences at this clinic. However, based on the overall rating, this clinic appears to maintain reasonable patient satisfaction.
+
+                I'd recommend calling them directly to ask about:
+                - Services offered and wait times
+                - Pricing and payment options
+                - What to expect during your visit
+                - Any specific concerns you might have
+
+                Would you like me to help you prepare questions to ask when you call?
+                """
+
+            # Prepare review text for analysis
+            review_texts = []
+            for review in reviews[:10]:  # Limit to 10 most recent reviews
+                text = review.get('text', '')
+                rating = review.get('rating', 0)
+                if text:
+                    review_texts.append(f"Rating: {rating}/5 - {text}")
+
+            combined_reviews = "\n\n".join(review_texts)
+
+            prompt = f"""
+            You are analyzing patient reviews for {clinic_name}, a healthcare facility. Create a helpful, balanced summary for someone considering visiting this clinic.
+
+            CLINIC INFORMATION:
+            - Name: {clinic_name}
+            - Google Rating: {clinic_rating}/5.0 stars
+            - Total Reviews: {total_ratings}
+
+            PATIENT REVIEWS:
+            {combined_reviews}
+
+            Please provide a conversational, helpful summary that includes:
+
+            1. **Overall Patient Experience** (2-3 sentences)
+            - What patients generally say about their experience
+            - Overall tone and satisfaction level
+
+            2. **Key Strengths** (2-4 bullet points)
+            - What patients consistently praise
+            - Specific positive aspects mentioned
+
+            3. **Areas to Be Aware Of** (1-3 bullet points, if mentioned)
+            - Common concerns or issues patients mention
+            - Be balanced and fair, not overly negative
+
+            4. **What to Expect** (2-3 sentences)
+            - Help the user understand what their visit might be like
+            - Practical insights from patient experiences
+
+            5. **Bottom Line Recommendation** (1-2 sentences)
+            - Balanced assessment of whether this seems like a good option
+            - Any specific advice for potential patients
+
+            Write in a conversational, supportive tone as if you're helping a friend choose healthcare. Focus on practical insights that would help someone make an informed decision. Be honest but compassionate, and remember this person may have limited healthcare options.
+
+            Format with clear headers and bullet points for easy reading.
+            """
+
+            response = self.model.generate_content(prompt)
+            return response.text
+
+        except Exception as e:
+            return f"""
+            **{clinic_name}** - Analysis Unavailable
+
+            I encountered an issue analyzing the reviews for this clinic: {str(e)}
+
+            However, I can still help you by:
+            - Providing general questions to ask when you call
+            - Helping you understand what to expect at most clinics
+            - Suggesting what information to gather before your visit
+
+            Would you like help preparing for your visit to this clinic?
+            """
+
+    async def find_clinic_in_database(self, clinic_name: str) -> Optional[Dict[str, Any]]:
+        """Find clinic in database by name (fuzzy matching)"""
+        try:
+            # Try exact match first
+            clinic = clinics_collection.find_one({"name": {"$regex": f"^{clinic_name}$", "$options": "i"}})
+
+            if clinic:
+                return clinic
+
+            # Try partial match
+            clinic = clinics_collection.find_one({"name": {"$regex": clinic_name, "$options": "i"}})
+
+            if clinic:
+                return clinic
+
+            # Try searching in services or notes
+            clinic = clinics_collection.find_one({
+                "$or": [
+                    {"services": {"$regex": clinic_name, "$options": "i"}},
+                    {"notes": {"$regex": clinic_name, "$options": "i"}}
+                ]
+            })
+
+            return clinic
+
+        except Exception as e:
+            print(f"Error searching for clinic in database: {e}")
+            return None
+
+    def is_review_cache_valid(self, clinic_doc: Dict[str, Any]) -> bool:
+        """Check if cached review analysis is still valid"""
+        try:
+            review_analysis = clinic_doc.get('review_analysis')
+            if not review_analysis:
+                return False
+
+            cache_expires_at = review_analysis.get('cache_expires_at')
+            if not cache_expires_at:
+                return False
+
+            # Parse expiration time
+            expires_dt = datetime.fromisoformat(cache_expires_at.replace('Z', '+00:00'))
+            return datetime.utcnow().replace(tzinfo=expires_dt.tzinfo) < expires_dt
+
+        except Exception as e:
+            print(f"Error checking cache validity: {e}")
+            return False
+
+    async def save_review_analysis_to_cache(self, clinic_doc: Dict[str, Any], review_data: Dict[str, Any], analysis_text: str) -> None:
+        """Save review analysis to clinic document cache"""
+        try:
+            # Determine confidence level based on review count
+            total_reviews = review_data.get('total_ratings', 0)
+            if total_reviews >= 10:
+                confidence = "high"
+                cache_duration_days = 30  # Cache for 30 days
+            elif total_reviews >= 3:
+                confidence = "medium"
+                cache_duration_days = 14  # Cache for 14 days
+            else:
+                confidence = "low"
+                cache_duration_days = 7   # Cache for 7 days
+
+            # Calculate cache expiration
+            cache_expires_at = datetime.utcnow() + timedelta(days=cache_duration_days)
+
+            # Prepare analysis data
+            analysis_data = {
+                "review_summary": analysis_text,
+                "google_rating": review_data.get('rating'),
+                "total_reviews": total_reviews,
+                "last_analyzed": datetime.utcnow().isoformat(),
+                "analysis_confidence": confidence,
+                "cache_expires_at": cache_expires_at.isoformat()
+            }
+
+            # Update clinic document
+            clinics_collection.update_one(
+                {"_id": clinic_doc["_id"]},
+                {"$set": {"review_analysis": analysis_data}}
+            )
+
+            print(f"Cached review analysis for {clinic_doc.get('name')} (expires: {cache_expires_at})")
+
+        except Exception as e:
+            print(f"Error saving review analysis to cache: {e}")
+
+    async def find_and_analyze_clinic(self, clinic_name: str, clinic_address: str = None) -> str:
+        """Complete workflow: find clinic, check cache, fetch reviews if needed, and generate analysis"""
+        try:
+            # First, try to find clinic in our database
+            clinic_doc = await self.find_clinic_in_database(clinic_name)
+
+            # Check if we have valid cached analysis
+            if clinic_doc and self.is_review_cache_valid(clinic_doc):
+                cached_analysis = clinic_doc.get('review_analysis', {})
+                cached_summary = cached_analysis.get('review_summary')
+
+                if cached_summary:
+                    cache_info = f"\n\n*Using cached analysis from {cached_analysis.get('last_analyzed', 'recently')} - {cached_analysis.get('analysis_confidence', 'medium')} confidence*"
+                    return cached_summary + cache_info
+
+            # If no cache or expired, fetch fresh reviews
+            review_data = await self.fetch_clinic_reviews(clinic_name, clinic_address)
+
+            if review_data.get('error'):
+                return f"""
+                I had trouble finding detailed information about **{clinic_name}**.
+
+                This could mean:
+                - The clinic name might be slightly different
+                - It might be a newer clinic with limited online presence
+                - There might be multiple locations
+
+                Can you help me by providing:
+                - The full clinic name as it appears on their website or signage
+                - The street address or neighborhood
+                - Any other identifying information (like "urgent care" or "family practice")
+
+                I'd be happy to try again with more specific information!
+                """
+
+            # Generate fresh analysis
+            analysis = await self.analyze_clinic_sentiment(clinic_name, review_data)
+
+            # Save to cache if we found the clinic in our database
+            if clinic_doc:
+                await self.save_review_analysis_to_cache(clinic_doc, review_data, analysis)
+                cache_note = "\n\n*Fresh analysis saved to cache*"
+                analysis += cache_note
+
+            return analysis
+
+        except Exception as e:
+            return f"""
+            I encountered an issue analyzing **{clinic_name}**: {str(e)}
+
+            I can still help you by:
+            - Answering general questions about what to expect at clinics
+            - Helping you prepare questions to ask when you call
+            - Providing guidance on choosing healthcare providers
+
+            What would be most helpful for you right now?
+            """
+
+    async def refresh_clinic_review_cache(self, clinic_name: str, force: bool = False) -> str:
+        """Force refresh the review analysis cache for a clinic"""
+        try:
+            clinic_doc = await self.find_clinic_in_database(clinic_name)
+
+            if not clinic_doc:
+                return f"Could not find **{clinic_name}** in our database to refresh cache."
+
+            # Fetch fresh reviews regardless of cache status
+            review_data = await self.fetch_clinic_reviews(clinic_name, clinic_doc.get('address'))
+
+            if review_data.get('error'):
+                return f"Could not fetch fresh reviews for **{clinic_name}**: {review_data['error']}"
+
+            # Generate fresh analysis
+            analysis = await self.analyze_clinic_sentiment(clinic_name, review_data)
+
+            # Save to cache
+            await self.save_review_analysis_to_cache(clinic_doc, review_data, analysis)
+
+            return f"✅ **Cache refreshed for {clinic_name}**\n\n{analysis}"
+
+        except Exception as e:
+            return f"Error refreshing cache for **{clinic_name}**: {str(e)}"
 
     async def get_nearby_clinics_context(self, location: str, limit: int = 3) -> str:
         """Get nearby clinics to provide context for recommendations"""
@@ -357,12 +701,32 @@ class ChatBotService:
             # Update conversation state
             self.update_conversation_state(session, message, intent)
 
-            # Build contextual prompt
-            prompt = self.build_contextual_prompt(session, message, intent)
+            # Handle clinic analysis requests
+            if intent == 'clinic_analysis':
+                clinic_name = session.session_data.get('current_clinic')
+                if not clinic_name:
+                    # Try to extract clinic name from current message
+                    clinic_name = self.extract_clinic_name_from_message(message)
 
-            # Generate AI response
-            response = self.model.generate_content(prompt)
-            ai_response = response.text
+                if clinic_name:
+                    # Perform clinic analysis
+                    ai_response = await self.find_and_analyze_clinic(clinic_name)
+                else:
+                    ai_response = """I'd be happy to help you learn about a specific clinic! Could you tell me the name of the clinic you're interested in?
+
+For example:
+- "Tell me about Houston Methodist Urgent Care"
+- "What are the reviews like for Harris Health System?"
+- "I'm considering AFC Urgent Care, what do patients say?"
+
+The more specific you can be with the clinic name, the better information I can provide!"""
+            else:
+                # Build contextual prompt for other intents
+                prompt = self.build_contextual_prompt(session, message, intent)
+
+                # Generate AI response
+                response = self.model.generate_content(prompt)
+                ai_response = response.text
 
             # Add AI response to session
             self.add_message_to_session(session, ai_response, "assistant")
@@ -415,6 +779,11 @@ class ChatBotService:
                 "Urgent care locations",
                 "What if I can't afford ER?",
                 "Non-emergency options"
+            ],
+            'clinic_analysis': [
+                "Tell me about another clinic",
+                "What should I ask when I call?",
+                "Find more clinics like this"
             ]
         }
 

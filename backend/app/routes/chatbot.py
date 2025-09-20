@@ -180,3 +180,59 @@ async def quick_insurance_help(session_id: str):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to provide insurance help: {str(e)}")
+
+@router.post("/clinic-analysis/{clinic_name}")
+async def analyze_clinic_reviews(clinic_name: str, force_refresh: bool = False):
+    """Analyze clinic reviews with caching support"""
+    try:
+        if force_refresh:
+            result = await chatbot_service.refresh_clinic_review_cache(clinic_name)
+        else:
+            result = await chatbot_service.find_and_analyze_clinic(clinic_name)
+
+        return {
+            "clinic_name": clinic_name,
+            "analysis": result,
+            "force_refresh": force_refresh
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze clinic: {str(e)}")
+
+@router.get("/clinic-cache-status/{clinic_name}")
+async def get_clinic_cache_status(clinic_name: str):
+    """Check cache status for a clinic"""
+    try:
+        clinic_doc = await chatbot_service.find_clinic_in_database(clinic_name)
+
+        if not clinic_doc:
+            return {
+                "clinic_name": clinic_name,
+                "found_in_database": False,
+                "cache_status": "not_found"
+            }
+
+        review_analysis = clinic_doc.get('review_analysis')
+        if not review_analysis:
+            return {
+                "clinic_name": clinic_doc.get('name'),
+                "found_in_database": True,
+                "cache_status": "no_cache",
+                "review_analysis": None
+            }
+
+        is_valid = chatbot_service.is_review_cache_valid(clinic_doc)
+
+        return {
+            "clinic_name": clinic_doc.get('name'),
+            "found_in_database": True,
+            "cache_status": "valid" if is_valid else "expired",
+            "review_analysis": {
+                "last_analyzed": review_analysis.get('last_analyzed'),
+                "cache_expires_at": review_analysis.get('cache_expires_at'),
+                "analysis_confidence": review_analysis.get('analysis_confidence'),
+                "total_reviews": review_analysis.get('total_reviews'),
+                "google_rating": review_analysis.get('google_rating')
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check cache status: {str(e)}")

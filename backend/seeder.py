@@ -14,6 +14,12 @@ import googlemaps
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
+# Import our photo service
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from app.services.photo_service import photo_service
+from app.services.maps import get_place_details_with_photos, extract_photo_references
+
 # Load environment variables
 load_dotenv('.local.env')
 
@@ -148,13 +154,35 @@ class HealthcareSeeder:
                 fields=[
                     'name', 'formatted_address', 'formatted_phone_number',
                     'website', 'opening_hours', 'rating', 'user_ratings_total',
-                    'types', 'geometry', 'reviews'
+                    'type', 'geometry', 'reviews', 'photo'
                 ]
             )
             return details.get('result')
         except Exception as e:
             logger.error(f"Error getting details for place {place_id}: {e}")
             return None
+
+    def process_place_photos(self, place_id: str, place_details: Dict) -> List[str]:
+        """Process and upload photos for a place to Google Cloud Storage"""
+        try:
+            # Extract photo references from place details
+            photo_references = extract_photo_references(place_details)
+
+            if not photo_references:
+                logger.info(f"No photos found for place {place_id}")
+                return []
+
+            logger.info(f"Processing {len(photo_references)} photos for place {place_id}")
+
+            # Process photos and get GCS URLs
+            photo_urls = photo_service.process_place_photos(place_id, photo_references)
+
+            logger.info(f"Successfully processed {len(photo_urls)} photos for place {place_id}")
+            return photo_urls
+
+        except Exception as e:
+            logger.error(f"Error processing photos for place {place_id}: {e}")
+            return []
 
     def extract_services_from_types(self, types: List[str]) -> List[str]:
         """Extract likely services from Google Places types"""
@@ -226,7 +254,7 @@ class HealthcareSeeder:
             'immigrant_safe': is_community_clinic
         }
 
-    def format_clinic_data(self, place: Dict, details: Dict = None) -> Dict:
+    def format_clinic_data(self, place: Dict, details: Dict = None, photo_urls: List[str] = None) -> Dict:
         """Format place data into our clinic schema"""
         if details is None:
             details = place  # For new API, we already have most details
@@ -260,6 +288,7 @@ class HealthcareSeeder:
                     place['geometry']['location']['lat']
                 ]
             },
+            'image_urls': photo_urls or [],
             'notes': self.generate_notes(name, types),
             'last_updated': datetime.now(timezone.utc)
         }
@@ -318,20 +347,26 @@ class HealthcareSeeder:
                 place_id = place.get('place_id')
                 details = self.get_place_details(place_id) if place_id else {}
 
+                # Process photos if we have a valid place_id
+                photo_urls = []
+                if place_id and details:
+                    logger.info(f"Processing photos for {place.get('name', 'Unknown')}")
+                    photo_urls = self.process_place_photos(place_id, details)
+
                 # Format for our database
-                clinic_data = self.format_clinic_data(place, details)
+                clinic_data = self.format_clinic_data(place, details, photo_urls)
 
                 # Insert into database
                 self.clinics_collection.insert_one(clinic_data)
                 seeded_count += 1
 
-                logger.info(f"✅ Added: {clinic_data['name']}")
+                logger.info(f"Added: {clinic_data['name']} with {len(photo_urls)} photos")
 
             except Exception as e:
-                logger.error(f"❌ Failed to process {place.get('name', 'Unknown')}: {e}")
+                logger.error(f"Failed to process {place.get('name', 'Unknown')}: {e}")
                 continue
 
-        logger.info(f"🎉 Seeding complete! Added {seeded_count} healthcare facilities")
+        logger.info(f"Seeding complete! Added {seeded_count} healthcare facilities")
 
         # Create indexes for better query performance
         self.create_indexes()
@@ -356,7 +391,7 @@ class HealthcareSeeder:
         self.clinics_collection.create_index("lgbtq_friendly")
         self.clinics_collection.create_index("immigrant_safe")
 
-        logger.info("✅ Database indexes created")
+        logger.info("Database indexes created")
 
 def main():
     """Run the seeder"""

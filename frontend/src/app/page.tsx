@@ -1,116 +1,148 @@
-import React from 'react';
-import { MapPin, Heart, Search, MessageCircle } from 'lucide-react';
+'use client';
+
+import React, { useState } from 'react';
+import { MapPin, Heart, Search, ChevronDown } from 'lucide-react';
 
 export default function HomePage() {
+  const [zipCode, setZipCode] = useState('');
+  const [healthIssue, setHealthIssue] = useState('');
+
+  const commonIssues = [
+    'General Checkup',
+    'Mental Health',
+    'Urgent Care',
+    'Dental Care',
+    'Eye Care',
+    'Women\'s Health',
+    'Pediatric Care',
+    'Chronic Conditions',
+    'Preventive Care'
+  ];
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Handle search logic here
+    console.log('Searching for:', { zipCode, healthIssue });
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <Heart className="h-8 w-8 text-blue-600" />
+          <div className="flex justify-between items-center h-18 py-4">
+            <div className="flex items-center space-x-3">
+              <Heart className="h-7 w-7 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900">Care Compass</h1>
             </div>
-            <nav className="hidden md:flex space-x-8">
-              <a href="#search" className="text-gray-700 hover:text-blue-600">Find Care</a>
-              <a href="#chat" className="text-gray-700 hover:text-blue-600">Ask Questions</a>
-              <a href="#about" className="text-gray-700 hover:text-blue-600">About</a>
+            <nav className="hidden md:flex space-x-10">
+              <a href="#search" className="text-gray-600 hover:text-gray-900 font-normal text-base transition-colors">Find Care</a>
+              <a href="#chat" className="text-gray-600 hover:text-gray-900 font-normal text-base transition-colors">Get Help</a>
+              <a href="#about" className="text-gray-600 hover:text-gray-900 font-normal text-base transition-colors">About Us</a>
             </nav>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-20 px-4 text-center">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-5xl font-bold text-gray-900 mb-6">
-            Affordable Healthcare
-            <span className="text-blue-600"> For Everyone</span>
-          </h2>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Find free and low-cost clinics, understand your options, and get the care you deserve—
-            no insurance required.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors">
-              Find Clinics Near Me
-            </button>
-            <button className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors">
-              Chat with AI Guide
-            </button>
+      {/* Hero Section with Search */}
+      <section className="bg-white py-12 px-4 border-b border-gray-100">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-8">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Find affordable healthcare near you
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Connect with free and low-cost clinics in your area. No insurance required.
+            </p>
           </div>
+
+          {/* Search Form */}
+          <form onSubmit={handleSearch} className="bg-white rounded-xl border border-gray-200 shadow-lg p-8 max-w-4xl mx-auto">
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+              {/* Zip Code Input */}
+              <div className="flex-1">
+                <label htmlFor="zipcode" className="block text-sm font-semibold text-gray-700 mb-3 text-left">
+                  Location
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    id="zipcode"
+                    value={zipCode}
+                    onChange={(e) => setZipCode(e.target.value)}
+                    placeholder="ZIP code, city, or address"
+                    className="w-full pl-12 pr-4 py-4 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                  />
+                </div>
+              </div>
+
+              {/* Health Issue Dropdown */}
+              <div className="flex-1">
+                <label htmlFor="issue" className="block text-sm font-semibold text-gray-700 mb-3 text-left">
+                  Health concern or service
+                </label>
+                <div className="relative">
+                  <select
+                    id="issue"
+                    value={healthIssue}
+                    onChange={(e) => setHealthIssue(e.target.value)}
+                    className="w-full px-4 py-4 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white text-base"
+                  >
+                    <option value="">Select a service</option>
+                    {commonIssues.map((issue) => (
+                      <option key={issue} value={issue}>{issue}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Search Button */}
+              <div className="md:w-auto w-full">
+                <button
+                  type="submit"
+                  className="w-full md:w-auto bg-blue-600 text-white px-8 py-4 rounded-lg text-base font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <Search className="h-5 w-5" />
+                  Find care
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h3 className="text-3xl font-bold text-center text-gray-900 mb-12">
-            How Care Compass Helps
+      {/* Value Proposition */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h3 className="text-3xl font-bold text-gray-900 mb-6">
+            Healthcare that&rsquo;s accessible to everyone
           </h3>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center p-6">
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MapPin className="h-8 w-8 text-blue-600" />
-              </div>
-              <h4 className="text-xl font-semibold mb-3">Find Local Clinics</h4>
-              <p className="text-gray-600">
-                Discover free and sliding-scale clinics, community health centers, 
-                and urgent care options in your area.
-              </p>
+          <p className="text-xl text-gray-600 mb-12 leading-relaxed max-w-4xl mx-auto">
+            Care Compass connects uninsured individuals to affordable healthcare by providing access to
+            free and sliding-scale clinics, transparent pricing, and AI-powered guidance in plain language.
+          </p>
+          <div className="grid md:grid-cols-4 gap-8 text-center">
+            <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-100">
+              <div className="text-3xl font-bold text-gray-900 mb-3">28M+</div>
+              <div className="text-sm text-gray-600 font-medium">Uninsured Americans need affordable care</div>
             </div>
-            <div className="text-center p-6">
-              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-green-600" />
-              </div>
-              <h4 className="text-xl font-semibold mb-3">Transparent Pricing</h4>
-              <p className="text-gray-600">
-                See estimated costs upfront with clear, simple explanations 
-                of what you can expect to pay.
-              </p>
+            <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-100">
+              <div className="text-3xl font-bold text-gray-900 mb-3">Free</div>
+              <div className="text-sm text-gray-600 font-medium">No cost to search and compare options</div>
             </div>
-            <div className="text-center p-6">
-              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="h-8 w-8 text-purple-600" />
-              </div>
-              <h4 className="text-xl font-semibold mb-3">AI-Powered Guidance</h4>
-              <p className="text-gray-600">
-                Get personalized help understanding your healthcare options 
-                and rights in plain, easy-to-understand language.
-              </p>
+            <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-100">
+              <div className="text-3xl font-bold text-gray-900 mb-3">Private</div>
+              <div className="text-sm text-gray-600 font-medium">Anonymous browsing and searching</div>
+            </div>
+            <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-100">
+              <div className="text-3xl font-bold text-gray-900 mb-3">24/7</div>
+              <div className="text-sm text-gray-600 font-medium">AI assistant for healthcare guidance</div>
             </div>
           </div>
         </div>
       </section>
-
-      {/* Call to Action */}
-      <section className="py-16 bg-blue-600 text-white">
-        <div className="max-w-4xl mx-auto text-center px-4">
-          <h3 className="text-3xl font-bold mb-4">
-            Healthcare is a Right, Not a Privilege
-          </h3>
-          <p className="text-xl mb-8 opacity-90">
-            Everyone deserves access to quality healthcare. Let us help you find the care you need.
-          </p>
-          <button className="bg-white text-blue-600 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors">
-            Start Finding Care
-          </button>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <Heart className="h-6 w-6" />
-            <span className="text-lg font-semibold">Care Compass</span>
-          </div>
-          <p className="text-gray-400">
-            Built with ❤️ for HackRice 2025 - Connecting communities to affordable healthcare
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

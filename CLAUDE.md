@@ -16,17 +16,20 @@ To connect uninsured individuals to affordable healthcare by providing:
 - **Framework**: FastAPI (Python)
 - **Database**: MongoDB Atlas
 - **AI**: Google Gemini Pro for healthcare guidance and text simplification
-- **Mapping**: Google Maps API for geocoding and location services
+- **Mapping**: Google Maps API for geocoding, location services, and Maps JavaScript API for interactive maps
 - **Deployment**: Google Cloud (Cloud Run)
 
 ### Frontend
-- **Framework**: Next.js 15.5.3 with React 19
+- **Framework**: Next.js 15.5.3 with React 19 (App Router)
 - **Styling**: Tailwind CSS v4
 - **Language**: TypeScript
 - **UI Components**: Lucide React icons
 - **Data Fetching**: Tanstack React Query
 - **HTTP Client**: Axios
 - **Deployment**: Vercel
+- **Routing**: File-based routing with App Router
+  - `/` - Landing page (homepage with search form)
+  - `/search` - Search results page (clinic listings with filters)
 
 ### Key Dependencies
 - Backend: `fastapi`, `uvicorn`, `pymongo`, `google-generativeai`, `googlemaps`, `google-cloud-storage`
@@ -103,7 +106,7 @@ npm run lint
 
 ### Frontend (.env.local)
 - `NEXT_PUBLIC_API_URL` - Backend API URL (default: http://localhost:8000)
-- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` - For frontend maps
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` - For Maps JavaScript API and frontend maps integration
 
 ## Target Users & Use Cases
 - **Primary**: Uninsured individuals seeking affordable healthcare
@@ -138,6 +141,11 @@ npm run lint
 - ✅ Clinic data seeding system implementation (seeder.py completed)
 - ✅ Geospatial search with MongoDB working correctly
 - ✅ Refactored code into organized folder structure for team development
+- ✅ Next.js App Router implementation with search functionality
+- ✅ Search results page with ZocDoc-style layout and filtering
+- ✅ Interactive Google Maps integration with clinic markers
+- ✅ Real-time marker filtering based on user-selected criteria
+- ✅ Clinic location visualization with click-to-scroll functionality
 - ✅ Google Maps Photos integration with Cloud Storage caching
 - ✅ Interactive photo galleries in clinic search results
 - ✅ Responsive clinic cards with visual previews
@@ -226,6 +234,40 @@ hackrice25/
 - **Data Structure**: Clinic data includes GeoJSON Point coordinates for proper geospatial indexing
 - **Radius Filtering**: Properly converts miles to meters and filters results within specified radius
 - **Search Endpoint**: Use POST `/clinics/search` instead of GET with query params for better frontend integration
+
+## Maps JavaScript API Implementation
+
+### Interactive Map Features
+- **Real-time clinic visualization**: Shows all filtered clinics as markers on an interactive map
+- **Custom markers**: Color-coded markers (green for walk-ins accepted, red for appointment needed)
+- **Info windows**: Rich popups with clinic details, services, pricing, and action buttons
+- **User location**: Blue marker showing user's current/searched location
+- **Auto-fitting bounds**: Automatically adjusts zoom and position to show all relevant clinics
+- **Click-to-scroll integration**: Clicking map markers scrolls to corresponding clinic in results list
+
+### Map Layout Options
+- **Side-by-side view**: On large screens (lg+), map and clinic list display side-by-side
+- **Sticky positioning**: Map stays in view while scrolling through clinic results
+- **Responsive toggling**: Mobile devices show map/list toggle, desktop shows "Map & List"/"List Only" toggle
+- **Smart defaults**: Map visible by default for better user experience
+
+### Map Component Structure
+```typescript
+// Key GoogleMap component props
+interface GoogleMapProps {
+  clinics: Clinic[];                    // Array of filtered clinics to display
+  userLocation?: { lat: number; lng: number };  // User's location
+  onMarkerClick?: (clinic: Clinic) => void;     // Callback for marker interactions
+  height?: string;                      // Customizable map height
+  className?: string;                   // Additional styling
+}
+```
+
+### Maps API Configuration
+- **Required APIs**: Maps JavaScript API, Places API (for geocoding)
+- **Script loading**: Dynamic script injection with promise-based loading
+- **Error handling**: Graceful fallback when Maps API fails to load
+- **Performance**: Efficient marker management with cleanup on component unmount
 - Remember to alwasys test http requests with HTTPie, not curl.
 
 ## Photo Integration Implementation Notes

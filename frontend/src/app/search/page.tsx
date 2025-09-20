@@ -4,30 +4,8 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { MapPin, Filter, Star, Clock, DollarSign, Heart, ArrowLeft, Phone, Globe, Users, Shield, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
-import ClinicMap from '../../components/ClinicMap';
-
-interface Clinic {
-  _id: string;
-  name: string;
-  address: string;
-  phone?: string;
-  services: string[];
-  pricing_info?: string;
-  languages: string[];
-  hours?: string;
-  walk_in_accepted: boolean;
-  lgbtq_friendly: boolean;
-  immigrant_safe: boolean;
-  website?: string;
-  notes?: string;
-  distance_meters?: number;
-  rating?: number;
-  user_ratings_total?: number;
-  location?: {
-    type: 'Point';
-    coordinates: [number, number];
-  };
-}
+import GoogleMap from '../../components/GoogleMap';
+import useClinics, { Clinic } from '../../hooks/useClinics';
 
 interface FilterState {
   services: string[];
@@ -40,25 +18,46 @@ interface FilterState {
   pricingType: string;
 }
 
+// Health condition mapping from landing page to filter services
+const mapHealthIssueToServices = (healthIssue: string): string[] => {
+  const mapping: Record<string, string[]> = {
+    'General Checkup': ['Primary Care'],
+    'Mental Health': ['Mental Health', 'Behavioral Health'],
+    'Urgent Care': ['Urgent Care', 'Emergency Care'],
+    'Dental Care': ['Dental Care'],
+    'Eye Care': ['Vision'],
+    'Women\'s Health': ['Women\'s Health', 'Prenatal Care', 'Pregnancy Testing', 'Birth Control'],
+    'Pediatric Care': ['Pediatrics'],
+    'Chronic Conditions': ['Chronic Disease Management', 'Primary Care'],
+    'Preventive Care': ['Primary Care', 'Health Screenings', 'Preventive Care'],
+  };
+
+  return mapping[healthIssue] || [];
+};
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const zipCode = searchParams.get('zip') || '';
   const healthIssue = searchParams.get('issue') || '';
 
-  const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<FilterState>({
-    services: [],
-    languages: [],
-    walkInsOnly: false,
-    lgbtqFriendly: false,
-    immigrantSafe: false,
-    maxDistance: 25,
-    minRating: 0,
-    pricingType: 'all'
+  // Use the custom clinic hook
+  const { clinics, loading, error, searchClinics } = useClinics();
+  const [filters, setFilters] = useState<FilterState>(() => {
+    // Initialize with health condition from landing page
+    const initialServices = healthIssue ? mapHealthIssueToServices(healthIssue) : [];
+    return {
+      services: initialServices,
+      languages: [],
+      walkInsOnly: false,
+      lgbtqFriendly: false,
+      immigrantSafe: false,
+      maxDistance: 25,
+      minRating: 0,
+      pricingType: 'all'
+    };
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [showMap, setShowMap] = useState(false);
+  const [showMap, setShowMap] = useState(true);
   const [userLocation] = useState<{ lat: number; lng: number }>({
     lat: 29.7604,
     lng: -95.3698
@@ -85,85 +84,30 @@ function SearchContent() {
 
   useEffect(() => {
     if (zipCode) {
-      searchClinics();
+      performSearch();
     }
-  }, [zipCode, healthIssue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [zipCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const searchClinics = async () => {
+  const performSearch = async () => {
     try {
-      setLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/clinics/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          location: zipCode,
-          radius_miles: filters.maxDistance,
-          services: healthIssue ? [healthIssue] : undefined
-        }),
+      await searchClinics({
+        location: zipCode,
+        radius_miles: filters.maxDistance,
+        services: filters.services.length > 0 ? filters.services : undefined,
+        walk_in_accepted: filters.walkInsOnly ? true : undefined,
+        lgbtq_friendly: filters.lgbtqFriendly ? true : undefined,
+        immigrant_safe: filters.immigrantSafe ? true : undefined,
+        languages: filters.languages.length > 0 ? filters.languages : undefined,
+        pricing_type: filters.pricingType !== 'all' ? filters.pricingType : undefined,
+        min_rating: filters.minRating > 0 ? filters.minRating : undefined,
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setClinics(data);
-      } else {
-        console.error('Failed to fetch clinics');
-      }
     } catch (error) {
-      console.error('Error fetching clinics:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error searching clinics:', error);
     }
   };
 
-  const filteredClinics = clinics.filter(clinic => {
-    // Walk-ins filter
-    if (filters.walkInsOnly && !clinic.walk_in_accepted) return false;
-
-    // Distance filter
-    if (clinic.distance_meters && clinic.distance_meters > filters.maxDistance * 1609.34) return false;
-
-    // LGBTQ+ friendly filter
-    if (filters.lgbtqFriendly && !clinic.lgbtq_friendly) return false;
-
-    // Immigrant safe filter
-    if (filters.immigrantSafe && !clinic.immigrant_safe) return false;
-
-    // Services filter
-    if (filters.services.length > 0) {
-      const hasMatchingService = filters.services.some(service =>
-        clinic.services.some(clinicService =>
-          clinicService.toLowerCase().includes(service.toLowerCase()) ||
-          service.toLowerCase().includes(clinicService.toLowerCase())
-        )
-      );
-      if (!hasMatchingService) return false;
-    }
-
-    // Languages filter
-    if (filters.languages.length > 0) {
-      const hasMatchingLanguage = filters.languages.some(language =>
-        clinic.languages.some(clinicLang =>
-          clinicLang.toLowerCase().includes(language.toLowerCase())
-        )
-      );
-      if (!hasMatchingLanguage) return false;
-    }
-
-    // Rating filter
-    if (clinic.rating && clinic.rating < filters.minRating) return false;
-
-    // Pricing type filter
-    if (filters.pricingType !== 'all' && clinic.pricing_info) {
-      const pricingLower = clinic.pricing_info.toLowerCase();
-      if (filters.pricingType === 'free' && !pricingLower.includes('free')) return false;
-      if (filters.pricingType === 'sliding_scale' && !pricingLower.includes('sliding')) return false;
-      if (filters.pricingType === 'fixed_price' && (pricingLower.includes('sliding') || pricingLower.includes('free'))) return false;
-    }
-
-    return true;
-  });
+  // Since we're doing server-side filtering, use clinics directly
+  const filteredClinics = clinics || [];
 
   const formatDistance = (meters?: number) => {
     if (!meters) return '';
@@ -242,10 +186,17 @@ function SearchContent() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setShowMap(!showMap)}
-                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                className="lg:hidden flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
                 <MapPin className="h-4 w-4" />
                 <span>{showMap ? 'Hide Map' : 'Show Map'}</span>
+              </button>
+              <button
+                onClick={() => setShowMap(!showMap)}
+                className="hidden lg:flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <MapPin className="h-4 w-4" />
+                <span>{showMap ? 'Map & List' : 'List Only'}</span>
               </button>
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -284,57 +235,27 @@ function SearchContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Map Section */}
-        {showMap && (
-          <div className="mb-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Clinics Near You
-                </h3>
-                <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                    <span>Your location</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                    <span>Walk-ins accepted</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                    <span>Appointment needed</span>
-                  </div>
-                </div>
-              </div>
-              <div className="h-96 w-full">
-                <ClinicMap
-                  clinics={filteredClinics}
-                  userLocation={userLocation}
-                  onMarkerClick={handleMarkerClick}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col xl:flex-row gap-6">
           {/* Filters Sidebar */}
-          <div className={`lg:w-80 ${showFilters ? 'block' : 'hidden lg:block'}`}>
+          <div className={`xl:w-80 ${showFilters ? 'block' : 'hidden xl:block'}`}>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
                 <button
-                  onClick={() => setFilters({
-                    services: [],
-                    languages: [],
-                    walkInsOnly: false,
-                    lgbtqFriendly: false,
-                    immigrantSafe: false,
-                    maxDistance: 25,
-                    minRating: 0,
-                    pricingType: 'all'
-                  })}
+                  onClick={() => {
+                    // Reset to initial health condition if it exists
+                    const initialServices = healthIssue ? mapHealthIssueToServices(healthIssue) : [];
+                    setFilters({
+                      services: initialServices,
+                      languages: [],
+                      walkInsOnly: false,
+                      lgbtqFriendly: false,
+                      immigrantSafe: false,
+                      maxDistance: 25,
+                      minRating: 0,
+                      pricingType: 'all'
+                    });
+                  }}
                   className="text-sm text-blue-600 hover:text-blue-800"
                 >
                   Clear all
@@ -501,32 +422,88 @@ function SearchContent() {
                   </label>
                 </div>
               </div>
+
+              {/* Apply Filters Button */}
+              <div className="pt-4 border-t border-gray-200">
+                <button
+                  onClick={performSearch}
+                  disabled={loading}
+                  className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-colors ${
+                    loading
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {loading ? 'Searching...' : 'Apply Filters'}
+                </button>
+                {error && (
+                  <div className="mt-2 text-sm text-red-600">
+                    Error: {error}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Results List */}
+          {/* Main Content Area */}
           <div className="flex-1">
-            {loading ? (
-              <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="animate-pulse">
-                      <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
-                      <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Map Section - Show on larger screens or when toggled */}
+              <div className={`${showMap ? 'lg:w-1/2' : 'hidden lg:block lg:w-1/2'}`}>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky top-24">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Clinics Near You
+                    </h3>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                        <span className="hidden sm:inline">Your location</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                        <span className="hidden sm:inline">Walk-ins</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                        <span className="hidden sm:inline">Appointments</span>
+                      </div>
                     </div>
                   </div>
-                ))}
+                  <div className="h-96 w-full">
+                    <GoogleMap
+                      clinics={filteredClinics}
+                      userLocation={userLocation}
+                      onMarkerClick={handleMarkerClick}
+                      height="400px"
+                    />
+                  </div>
+                </div>
               </div>
-            ) : filteredClinics.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No clinics found</h3>
-                <p className="text-gray-600">Try adjusting your filters or search area</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredClinics.map((clinic) => (
+
+              {/* Results List */}
+              <div className={`${showMap ? 'lg:w-1/2' : 'lg:w-full'}`}>
+                {loading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div className="animate-pulse">
+                          <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
+                          <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredClinics.length === 0 ? (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                    <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No clinics found</h3>
+                    <p className="text-gray-600">Try adjusting your filters or search area</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredClinics.map((clinic) => (
                   <div
                     key={clinic._id}
                     id={`clinic-${clinic._id}`}
@@ -660,9 +637,11 @@ function SearchContent() {
                       </div>
                     </div>
                   </div>
-                ))}
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

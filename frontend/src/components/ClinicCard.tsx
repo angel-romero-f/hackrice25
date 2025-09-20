@@ -145,8 +145,8 @@ export default function ClinicCard({ clinic }: ClinicCardProps) {
         {/* Services */}
         <div className="mb-4">
           <div className="flex flex-wrap gap-2">
-            {clinic.services.slice(0, 4).map((service) => (
-              <span key={service} className="px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
+            {clinic.services.slice(0, 4).map((service, index) => (
+              <span key={`${service}-${index}`} className="px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
                 {service}
               </span>
             ))}

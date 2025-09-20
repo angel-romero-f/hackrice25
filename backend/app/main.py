@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import clinics, chat
+from app.routes import clinics, chat, chatbot
 from app.config import MONGODB_URI, GOOGLE_MAPS_API_KEY, GEMINI_API_KEY
 
 app = FastAPI(
@@ -21,6 +21,7 @@ app.add_middleware(
 # Include routers
 app.include_router(clinics.router)
 app.include_router(chat.router)
+app.include_router(chatbot.router)
 
 @app.get("/")
 async def root():

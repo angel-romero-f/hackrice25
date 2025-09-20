@@ -13,10 +13,10 @@ interface ClinicListProps {
 export default function ClinicList({ clinics, loading }: ClinicListProps) {
   if (loading) {
     return (
-      <div className="h-full overflow-hidden">
-        <div className="space-y-4 h-full overflow-y-auto pr-2">
+      <div className="w-full">
+        <div className="space-y-4 w-full">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 w-full">
               <div className="animate-pulse">
                 <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
                 <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
@@ -42,8 +42,8 @@ export default function ClinicList({ clinics, loading }: ClinicListProps) {
   }
 
   return (
-    <div className="h-full overflow-hidden">
-      <div className="space-y-4 h-full overflow-y-auto pr-2">
+    <div className="w-full">
+      <div className="space-y-4 w-full">
         {clinics.map((clinic) => (
           <ClinicCard
             key={clinic._id}

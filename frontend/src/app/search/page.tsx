@@ -2,13 +2,10 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { MapPin, Filter, Star, Clock, DollarSign, Heart, ArrowLeft, Users, Shield } from 'lucide-react';
+import { Filter, Star, Clock, DollarSign, Heart, ArrowLeft, Users, Shield, Phone, Globe, CheckCircle, MapPin } from 'lucide-react';
 import Link from 'next/link';
-import GoogleMap from '../../components/GoogleMap';
 import ClinicList from '../../components/ClinicList';
-import useClinics, { Clinic } from '../../hooks/useClinics';
-import GoogleMap from '../../components/GoogleMap';
-import useClinics, { Clinic } from '../../hooks/useClinics';
+import useClinics from '../../hooks/useClinics';
 
 interface FilterState {
   services: string[];
@@ -20,23 +17,6 @@ interface FilterState {
   minRating: number;
   pricingType: string;
 }
-
-// Health condition mapping from landing page to filter services
-const mapHealthIssueToServices = (healthIssue: string): string[] => {
-  const mapping: Record<string, string[]> = {
-    'General Checkup': ['Primary Care'],
-    'Mental Health': ['Mental Health', 'Behavioral Health'],
-    'Urgent Care': ['Urgent Care', 'Emergency Care'],
-    'Dental Care': ['Dental Care'],
-    'Eye Care': ['Vision'],
-    'Women\'s Health': ['Women\'s Health', 'Prenatal Care', 'Pregnancy Testing', 'Birth Control'],
-    'Pediatric Care': ['Pediatrics'],
-    'Chronic Conditions': ['Chronic Disease Management', 'Primary Care'],
-    'Preventive Care': ['Primary Care', 'Health Screenings', 'Preventive Care'],
-  };
-
-  return mapping[healthIssue] || [];
-};
 
 // Health condition mapping from landing page to filter services
 const mapHealthIssueToServices = (healthIssue: string): string[] => {
@@ -75,28 +55,8 @@ function SearchContent() {
       minRating: 0,
       pricingType: 'all'
     };
-  // Use the custom clinic hook
-  const { clinics, loading, error, searchClinics } = useClinics();
-  const [filters, setFilters] = useState<FilterState>(() => {
-    // Initialize with health condition from landing page
-    const initialServices = healthIssue ? mapHealthIssueToServices(healthIssue) : [];
-    return {
-      services: initialServices,
-      languages: [],
-      walkInsOnly: false,
-      lgbtqFriendly: false,
-      immigrantSafe: false,
-      maxDistance: 25,
-      minRating: 0,
-      pricingType: 'all'
-    };
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [showMap, setShowMap] = useState(true);
-  const [userLocation] = useState<{ lat: number; lng: number }>({
-    lat: 29.7604,
-    lng: -95.3698
-  });
 
   // Available options based on seed data
   const availableServices = [
@@ -120,12 +80,9 @@ function SearchContent() {
   useEffect(() => {
     if (zipCode) {
       performSearch();
-      performSearch();
     }
   }, [zipCode]); // eslint-disable-line react-hooks/exhaustive-deps
-  }, [zipCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const performSearch = async () => {
   const performSearch = async () => {
     try {
       await searchClinics({
@@ -139,28 +96,13 @@ function SearchContent() {
         pricing_type: filters.pricingType !== 'all' ? filters.pricingType : undefined,
         min_rating: filters.minRating > 0 ? filters.minRating : undefined,
       });
-      await searchClinics({
-        location: zipCode,
-        radius_miles: filters.maxDistance,
-        services: filters.services.length > 0 ? filters.services : undefined,
-        walk_in_accepted: filters.walkInsOnly ? true : undefined,
-        lgbtq_friendly: filters.lgbtqFriendly ? true : undefined,
-        immigrant_safe: filters.immigrantSafe ? true : undefined,
-        languages: filters.languages.length > 0 ? filters.languages : undefined,
-        pricing_type: filters.pricingType !== 'all' ? filters.pricingType : undefined,
-        min_rating: filters.minRating > 0 ? filters.minRating : undefined,
-      });
     } catch (error) {
-      console.error('Error searching clinics:', error);
       console.error('Error searching clinics:', error);
     }
   };
 
   // Since we're doing server-side filtering, use clinics directly
   const filteredClinics = Array.isArray(clinics) ? clinics : [];
-
-  // Since we're doing server-side filtering, use clinics directly
-  const filteredClinics = clinics || [];
 
   const formatDistance = (meters?: number) => {
     if (!meters) return '';
@@ -209,17 +151,6 @@ function SearchContent() {
     );
   };
 
-  const handleMarkerClick = (clinic: Clinic) => {
-    // Scroll to clinic in results list
-    const element = document.getElementById(`clinic-${clinic._id}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-50');
-      setTimeout(() => {
-        element.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-50');
-      }, 2000);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -237,28 +168,6 @@ function SearchContent() {
               <h1 className="text-xl font-bold text-gray-900">Care Compass</h1>
             </div>
             <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setShowMap(!showMap)}
-                className="lg:hidden flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                className="lg:hidden flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <MapPin className="h-4 w-4" />
-                <span>{showMap ? 'Hide Map' : 'Show Map'}</span>
-              </button>
-              <button
-                onClick={() => setShowMap(!showMap)}
-                className="hidden lg:flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <MapPin className="h-4 w-4" />
-                <span>{showMap ? 'Map & List' : 'List Only'}</span>
-              </button>
-              <button
-                onClick={() => setShowMap(!showMap)}
-                className="hidden lg:flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <MapPin className="h-4 w-4" />
-                <span>{showMap ? 'Map & List' : 'List Only'}</span>
-              </button>
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="md:hidden flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
@@ -285,31 +194,14 @@ function SearchContent() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 h-[calc(100vh-200px)]">
-        <div className="flex flex-col xl:flex-row gap-6 h-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col xl:flex-row gap-6">
+        <div className="flex flex-col xl:flex-row gap-6 overflow-hidden">
           {/* Filters Sidebar */}
-          <div className={`xl:w-80 flex-shrink-0 ${showFilters ? 'block' : 'hidden xl:block'}`}>
-          <div className={`xl:w-80 ${showFilters ? 'block' : 'hidden xl:block'}`}>
+          <div className={`xl:w-80 xl:flex-shrink-0 ${showFilters ? 'block' : 'hidden xl:block'}`}>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
                 <button
-                  onClick={() => {
-                    // Reset to initial health condition if it exists
-                    const initialServices = healthIssue ? mapHealthIssueToServices(healthIssue) : [];
-                    setFilters({
-                      services: initialServices,
-                      languages: [],
-                      walkInsOnly: false,
-                      lgbtqFriendly: false,
-                      immigrantSafe: false,
-                      maxDistance: 25,
-                      minRating: 0,
-                      pricingType: 'all'
-                    });
-                  }}
                   onClick={() => {
                     // Reset to initial health condition if it exists
                     const initialServices = healthIssue ? mapHealthIssueToServices(healthIssue) : [];
@@ -490,8 +382,6 @@ function SearchContent() {
                   </label>
                 </div>
               </div>
-                </div>
-              </div>
 
               {/* Apply Filters Button */}
               <div className="pt-4 border-t border-gray-200">
@@ -515,184 +405,12 @@ function SearchContent() {
             </div>
           </div>
 
-              {/* Apply Filters Button */}
-              <div className="pt-4 border-t border-gray-200">
-                <button
-                  onClick={performSearch}
-                  disabled={loading}
-                  className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-colors ${
-                    loading
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  {loading ? 'Searching...' : 'Apply Filters'}
-                </button>
-                {error && (
-                  <div className="mt-2 text-sm text-red-600">
-                    Error: {error}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          {/* Main Content Area */}
-          <div className="flex-1">
-            <div className="flex flex-col lg:flex-row gap-6">
-              {/* Map Section - Show on larger screens or when toggled */}
-              <div className={`${showMap ? 'lg:w-1/2' : 'hidden lg:block lg:w-1/2'}`}>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky top-24">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Clinics Near You
-                    </h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                        <span className="hidden sm:inline">Your location</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                        <span className="hidden sm:inline">Walk-ins</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                        <span className="hidden sm:inline">Appointments</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-96 w-full">
-                    <GoogleMap
-                      clinics={filteredClinics}
-                      userLocation={userLocation}
-                      onMarkerClick={handleMarkerClick}
-                      height="400px"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Results List */}
-              <div className={`${showMap ? 'lg:w-1/2' : 'lg:w-full'}`}>
-                {loading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <div className="animate-pulse">
-                          <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
-                          <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredClinics.length === 0 ? (
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-                    <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No clinics found</h3>
-                    <p className="text-gray-600">Try adjusting your filters or search area</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {filteredClinics.map((clinic) => (
-                  <div
-                    key={clinic._id}
-                    id={`clinic-${clinic._id}`}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 hover:border-blue-300"
-                  >
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-2">
-                            <h3 className="text-xl font-semibold text-gray-900 mr-4">
-                              {clinic.name}
-                            </h3>
-                            {clinic.rating && renderStars(clinic.rating)}
-                          </div>
-
-                          <div className="flex items-center text-gray-600 text-sm mb-3">
-                            <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                            <span className="mr-4">{clinic.address}</span>
-                            {clinic.distance_meters && (
-                              <span className="text-gray-500">
-                                {formatDistance(clinic.distance_meters)} away
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center space-x-6 text-sm text-gray-600 mb-4">
-                            {clinic.phone && (
-                              <div className="flex items-center">
-                                <Phone className="h-4 w-4 mr-1 text-gray-400" />
-                                <span>{clinic.phone}</span>
-                              </div>
-                            )}
-                            {clinic.website && (
-                              <div className="flex items-center">
-                                <Globe className="h-4 w-4 mr-1 text-gray-400" />
-                                <a href={clinic.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                  Visit website
-                                </a>
-                              </div>
-                            )}
-                            {clinic.walk_in_accepted && (
-                              <div className="flex items-center text-green-600">
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                <span>Walk-ins accepted</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-          {/* Main Content Area */}
-          <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-6">
-            {/* Map Section - Show only when toggled */}
-            {showMap && (
-              <div className="lg:w-1/2 flex-shrink-0">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 h-full">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Clinics Near You
-                    </h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                        <span className="hidden sm:inline">Your location</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                        <span className="hidden sm:inline">Walk-ins</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                        <span className="hidden sm:inline">Appointments</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-[calc(100%-60px)] w-full">
-                    <GoogleMap
-                      clinics={filteredClinics}
-                      userLocation={userLocation}
-                      onMarkerClick={handleMarkerClick}
-                      height="100%"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Results List */}
-            <div className={`${showMap ? 'lg:w-1/2' : 'lg:w-full'} min-h-0`}>
-              <ClinicList
-                clinics={filteredClinics}
-                loading={loading}
-              />
-            </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+          {/* Results List - Full width */}
+          <div className="w-full">
+            <ClinicList
+              clinics={filteredClinics}
+              loading={loading}
+            />
           </div>
         </div>
       </div>

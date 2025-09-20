@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
+import ChatBot from "../components/ChatBot";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -22,6 +23,8 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${montserrat.variable} font-sans antialiased`}>
         {children}
+        {/* Persistent ChatBot floating bubble */}
+        <ChatBot />
       </body>
     </html>
   );

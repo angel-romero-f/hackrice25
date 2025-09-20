@@ -72,6 +72,7 @@ To connect uninsured individuals to affordable healthcare by providing:
 ### Backend
 ```bash
 cd backend
+source venv/bin/activate  # IMPORTANT: Always activate virtual environment first
 pip install -r requirements.txt
 python main.py  # Runs on http://localhost:8000
 ```
@@ -123,17 +124,39 @@ npm run lint
 - ✅ Backend FastAPI app with core endpoints
 - ✅ Frontend Next.js app with landing page
 - ✅ Environment configuration templates
-- 🔄 MongoDB database setup needed
+- ✅ MongoDB Atlas database setup completed
+- ✅ Google Maps API configured (Places, Geocoding, Maps JavaScript APIs)
+- ✅ Environment variables configured in backend/.env
+- 🔄 Clinic data seeding system implementation
+- 🔄 Weekly automated data refresh system
 - 🔄 API integration between frontend/backend
-- 🔄 Google APIs setup (Maps + Gemini)
+- 🔄 Gemini API setup
+
+## Data Seeding Strategy
+**Geographic Focus**: Houston area only for HackRice 2025
+**API Limit**: 30 healthcare facilities maximum to manage costs
+**Search Terms**:
+- "free clinic Houston"
+- "community health center Houston"
+- "federally qualified health center Houston"
+- "urgent care Houston self pay"
+- "sliding scale healthcare Houston"
+
+**Pricing Strategy**:
+- Prioritize clinics with published cash/sliding-scale prices
+- Known Houston clinics with pricing: NeuMed, Texas MedClinic, AFC West University, Insight Urgent Care, FastMed, Texas Health Breeze
+- Store exact pricing when available, mark as "Contact for pricing" when unavailable
+- Weekly automated refresh via cron job to keep data current
 
 ## Next Development Steps
-1. Set up MongoDB Atlas database with sample clinic data
-2. Configure Google Maps and Gemini API keys
-3. Build clinic search interface and map display
-4. Implement AI chat component
-5. Add clinic detail pages and filtering
-6. Deploy to production (Vercel + Google Cloud)
+1. ✅ Set up MongoDB Atlas database
+2. ✅ Configure Google Maps API keys
+3. 🔄 Implement clinic data seeding from Google Places API
+4. 🔄 Set up weekly automated data refresh system
+5. Build clinic search interface and map display
+6. Implement AI chat component
+7. Add clinic detail pages and filtering
+8. Deploy to production (Vercel + Google Cloud)
 
 ## File Structure
 ```
@@ -160,3 +183,6 @@ hackrice25/
 - Prioritize user privacy and safety in all implementations
 - Test API endpoints with proper error responses
 - Follow healthcare industry best practices for disclaimers
+- The reason pip isn't working is because you need to have activated the virtual environment. please try it with this in mind and remember this in the claude.md file
+- Don't put the comments of the directories at the top of the files
+- don't use emojis in comments

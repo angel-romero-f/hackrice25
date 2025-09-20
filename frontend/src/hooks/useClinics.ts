@@ -44,8 +44,19 @@ interface GetClinicsParams extends GetRequestParams {
   languages?: string[];
 }
 
+interface SearchResponse {
+  location: {
+    lat: number;
+    lng: number;
+    formatted_address: string;
+  };
+  clinics: Clinic[];
+  total_found: number;
+  search_radius_miles: number;
+}
+
 const useClinics = () => {
-  const api = useApi<Clinic[]>();
+  const api = useApi<SearchResponse>();
 
   // Search clinics with location and filters (POST /clinics/search)
   const searchClinics = useCallback(async (params: SearchClinicsParams) => {
@@ -54,13 +65,15 @@ const useClinics = () => {
       radius_miles: params.radius_miles || 25,
     };
 
-    // Add optional filters
+    // Backend expects service_type (string), not services (array)
+    // Convert first service to service_type
     if (params.services && params.services.length > 0) {
-      body.services = params.services;
+      body.service_type = params.services[0];
     }
 
+    // Backend expects walk_in_only, not walk_in_accepted
     if (params.walk_in_accepted !== undefined) {
-      body.walk_in_accepted = params.walk_in_accepted;
+      body.walk_in_only = params.walk_in_accepted;
     }
 
     if (params.lgbtq_friendly !== undefined) {
@@ -73,14 +86,6 @@ const useClinics = () => {
 
     if (params.languages && params.languages.length > 0) {
       body.languages = params.languages;
-    }
-
-    if (params.pricing_type) {
-      body.pricing_type = params.pricing_type;
-    }
-
-    if (params.min_rating !== undefined && params.min_rating > 0) {
-      body.min_rating = params.min_rating;
     }
 
     return api.post('/clinics/search', body);
@@ -103,9 +108,10 @@ const useClinics = () => {
 
   return {
     // State
-    clinics: api.data,
+    clinics: api.data?.clinics || [],
     loading: api.loading,
     error: api.error,
+    searchResponse: api.data,
 
     // Methods
     searchClinics,

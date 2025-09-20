@@ -14,8 +14,8 @@ interface ApiRequestConfig {
 interface PostRequestBody {
   location?: string;
   radius_miles?: number;
-  services?: string[];
-  walk_in_accepted?: boolean;
+  service_type?: string;
+  walk_in_only?: boolean;
   lgbtq_friendly?: boolean;
   immigrant_safe?: boolean;
   languages?: string[];

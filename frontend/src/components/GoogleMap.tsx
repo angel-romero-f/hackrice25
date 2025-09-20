@@ -33,11 +33,26 @@ interface GoogleMapProps {
   className?: string;
 }
 
-// Load Google Maps API script
+// Simple Google Maps API loader
 const loadGoogleMapsScript = (): Promise<void> => {
   return new Promise((resolve, reject) => {
-    if (window.google && window.google.maps) {
+    // Check if already loaded
+    if (typeof window !== 'undefined' && window.google && window.google.maps) {
       resolve();
+      return;
+    }
+
+    // Check if already loading
+    if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+      // Wait for existing script to load
+      const checkLoaded = () => {
+        if (window.google && window.google.maps) {
+          resolve();
+        } else {
+          setTimeout(checkLoaded, 100);
+        }
+      };
+      checkLoaded();
       return;
     }
 

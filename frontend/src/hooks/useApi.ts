@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 
 interface ApiState<T> {
   data: T | null;
@@ -33,7 +33,7 @@ interface GetRequestParams {
   [key: string]: unknown;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const useApi = <T = unknown>() => {
   const [state, setState] = useState<ApiState<T>>({
@@ -42,320 +42,150 @@ const useApi = <T = unknown>() => {
     error: null,
   });
 
-  const buildQueryString = useCallback((params: Record<string, unknown>): string => {
-    const searchParams = new URLSearchParams();
+  const buildQueryString = useCallback(
+    (params: Record<string, unknown>): string => {
+      const searchParams = new URLSearchParams();
 
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          // Handle arrays by adding multiple entries with the same key
-          value.forEach(item => searchParams.append(key, item.toString()));
-        } else {
-          searchParams.append(key, value.toString());
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            // Handle arrays by adding multiple entries with the same key
+            value.forEach((item) => searchParams.append(key, item.toString()));
+          } else {
+            searchParams.append(key, value.toString());
+          }
         }
-      }
-    });
-
-    return searchParams.toString();
-  }, []);
-
-  const makeRequest = useCallback(async (
-    url: string,
-    options: RequestInit = {},
-    config: ApiRequestConfig = {}
-  ): Promise<T> => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-
-    const controller = new AbortController();
-    const timeoutId = config.timeout ? setTimeout(() => controller.abort(), config.timeout) : null;
-
-    try {
-      const defaultHeaders = {
-        'Content-Type': 'application/json',
-        ...config.headers,
-      };
-
-      const response = await fetch(`${API_BASE_URL}${url}`, {
-        ...options,
-        headers: defaultHeaders,
-        signal: controller.signal,
       });
 
-      if (timeoutId) clearTimeout(timeoutId);
+      return searchParams.toString();
+    },
+    []
+  );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP Error: ${response.status} ${response.statusText}`);
-      }
+  const makeRequest = useCallback(
+    async (
+      url: string,
+      options: RequestInit = {},
+      config: ApiRequestConfig = {}
+    ): Promise<T> => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
 
-      const data = await response.json();
-      setState({ data, loading: false, error: null });
-      return data;
-    } catch (error) {
-      if (timeoutId) clearTimeout(timeoutId);
+      const controller = new AbortController();
+      const timeoutId = config.timeout
+        ? setTimeout(() => controller.abort(), config.timeout)
+        : null;
 
-      let errorMessage = 'An unexpected error occurred';
+      try {
+        const defaultHeaders = {
+          "Content-Type": "application/json",
+          ...config.headers,
+        };
 
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          errorMessage = 'Request timeout';
-        } else {
-          errorMessage = error.message;
+        const response = await fetch(`${API_BASE_URL}${url}`, {
+          ...options,
+          headers: defaultHeaders,
+          signal: controller.signal,
+        });
+
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.message ||
+              `HTTP Error: ${response.status} ${response.statusText}`
+          );
         }
-      }
 
-      setState(prev => ({ ...prev, loading: false, error: errorMessage }));
-      throw error;
-    }
-  }, []);
+        const data = await response.json();
+        setState({ data, loading: false, error: null });
+        return data;
+      } catch (error) {
+        if (timeoutId) clearTimeout(timeoutId);
+
+        let errorMessage = "An unexpected error occurred";
+
+        if (error instanceof Error) {
+          if (error.name === "AbortError") {
+            errorMessage = "Request timeout";
+          } else {
+            errorMessage = error.message;
+          }
+        }
+
+        setState((prev) => ({ ...prev, loading: false, error: errorMessage }));
+        throw error;
+      }
+    },
+    []
+  );
 
   // GET request method
-  const get = useCallback(async (
-    endpoint: string,
-    params?: GetRequestParams,
-    config?: ApiRequestConfig
-  ): Promise<T> => {
-    let url = endpoint;
+  const get = useCallback(
+    async (
+      endpoint: string,
+      params?: GetRequestParams,
+      config?: ApiRequestConfig
+    ): Promise<T> => {
+      let url = endpoint;
 
-    if (params && Object.keys(params).length > 0) {
-      const queryString = buildQueryString(params);
-      url += `?${queryString}`;
-    }
+      if (params && Object.keys(params).length > 0) {
+        const queryString = buildQueryString(params);
+        url += `?${queryString}`;
+      }
 
-    return makeRequest(url, { method: 'GET' }, config);
-  }, [makeRequest, buildQueryString]);
+      return makeRequest(url, { method: "GET" }, config);
+    },
+    [makeRequest, buildQueryString]
+  );
 
   // POST request method
-  const post = useCallback(async (
-    endpoint: string,
-    body?: PostRequestBody,
-    config?: ApiRequestConfig
-  ): Promise<T> => {
-    const options: RequestInit = {
-      method: 'POST',
-    };
-
-    if (body) {
-      options.body = JSON.stringify(body);
-    }
-
-    return makeRequest(endpoint, options, config);
-  }, [makeRequest]);
-
-  // PUT request method
-  const put = useCallback(async (
-    endpoint: string,
-    body?: Record<string, unknown>,
-    config?: ApiRequestConfig
-  ): Promise<T> => {
-    const options: RequestInit = {
-      method: 'PUT',
-    };
-
-    if (body) {
-      options.body = JSON.stringify(body);
-    }
-
-    return makeRequest(endpoint, options, config);
-  }, [makeRequest]);
-
-  // DELETE request method
-  const del = useCallback(async (
-    endpoint: string,
-    config?: ApiRequestConfig
-  ): Promise<T> => {
-    return makeRequest(endpoint, { method: 'DELETE' }, config);
-  }, [makeRequest]);
-
-  // Reset state
-  const reset = useCallback(() => {
-    setState({
-      data: null,
-      loading: false,
-      error: null,
-    });
-  }, []);
-
-  return {
-    ...state,
-    get,
-    post,
-    put,
-    delete: del,
-    reset,
-  };
-};
-
-export default useApi;
-export type { ApiState, PostRequestBody, GetRequestParams, ApiRequestConfig };
-import { useState, useCallback } from 'react';
-
-interface ApiState<T> {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-}
-
-interface ApiRequestConfig {
-  headers?: Record<string, string>;
-  timeout?: number;
-}
-
-interface PostRequestBody {
-  location?: string;
-  radius_miles?: number;
-  services?: string[];
-  walk_in_accepted?: boolean;
-  lgbtq_friendly?: boolean;
-  immigrant_safe?: boolean;
-  languages?: string[];
-  [key: string]: unknown;
-}
-
-interface GetRequestParams {
-  walk_in_accepted?: boolean;
-  lgbtq_friendly?: boolean;
-  immigrant_safe?: boolean;
-  services?: string[];
-  languages?: string[];
-  limit?: number;
-  offset?: number;
-  [key: string]: unknown;
-}
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-const useApi = <T = unknown>() => {
-  const [state, setState] = useState<ApiState<T>>({
-    data: null,
-    loading: false,
-    error: null,
-  });
-
-  const buildQueryString = useCallback((params: Record<string, unknown>): string => {
-    const searchParams = new URLSearchParams();
-
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          // Handle arrays by adding multiple entries with the same key
-          value.forEach(item => searchParams.append(key, item.toString()));
-        } else {
-          searchParams.append(key, value.toString());
-        }
-      }
-    });
-
-    return searchParams.toString();
-  }, []);
-
-  const makeRequest = useCallback(async (
-    url: string,
-    options: RequestInit = {},
-    config: ApiRequestConfig = {}
-  ): Promise<T> => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-
-    const controller = new AbortController();
-    const timeoutId = config.timeout ? setTimeout(() => controller.abort(), config.timeout) : null;
-
-    try {
-      const defaultHeaders = {
-        'Content-Type': 'application/json',
-        ...config.headers,
+  const post = useCallback(
+    async (
+      endpoint: string,
+      body?: PostRequestBody,
+      config?: ApiRequestConfig
+    ): Promise<T> => {
+      const options: RequestInit = {
+        method: "POST",
       };
 
-      const response = await fetch(`${API_BASE_URL}${url}`, {
-        ...options,
-        headers: defaultHeaders,
-        signal: controller.signal,
-      });
-
-      if (timeoutId) clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP Error: ${response.status} ${response.statusText}`);
+      if (body) {
+        options.body = JSON.stringify(body);
       }
 
-      const data = await response.json();
-      setState({ data, loading: false, error: null });
-      return data;
-    } catch (error) {
-      if (timeoutId) clearTimeout(timeoutId);
-
-      let errorMessage = 'An unexpected error occurred';
-
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          errorMessage = 'Request timeout';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-
-      setState(prev => ({ ...prev, loading: false, error: errorMessage }));
-      throw error;
-    }
-  }, []);
-
-  // GET request method
-  const get = useCallback(async (
-    endpoint: string,
-    params?: GetRequestParams,
-    config?: ApiRequestConfig
-  ): Promise<T> => {
-    let url = endpoint;
-
-    if (params && Object.keys(params).length > 0) {
-      const queryString = buildQueryString(params);
-      url += `?${queryString}`;
-    }
-
-    return makeRequest(url, { method: 'GET' }, config);
-  }, [makeRequest, buildQueryString]);
-
-  // POST request method
-  const post = useCallback(async (
-    endpoint: string,
-    body?: PostRequestBody,
-    config?: ApiRequestConfig
-  ): Promise<T> => {
-    const options: RequestInit = {
-      method: 'POST',
-    };
-
-    if (body) {
-      options.body = JSON.stringify(body);
-    }
-
-    return makeRequest(endpoint, options, config);
-  }, [makeRequest]);
+      return makeRequest(endpoint, options, config);
+    },
+    [makeRequest]
+  );
 
   // PUT request method
-  const put = useCallback(async (
-    endpoint: string,
-    body?: Record<string, unknown>,
-    config?: ApiRequestConfig
-  ): Promise<T> => {
-    const options: RequestInit = {
-      method: 'PUT',
-    };
+  const put = useCallback(
+    async (
+      endpoint: string,
+      body?: Record<string, unknown>,
+      config?: ApiRequestConfig
+    ): Promise<T> => {
+      const options: RequestInit = {
+        method: "PUT",
+      };
 
-    if (body) {
-      options.body = JSON.stringify(body);
-    }
+      if (body) {
+        options.body = JSON.stringify(body);
+      }
 
-    return makeRequest(endpoint, options, config);
-  }, [makeRequest]);
+      return makeRequest(endpoint, options, config);
+    },
+    [makeRequest]
+  );
 
   // DELETE request method
-  const del = useCallback(async (
-    endpoint: string,
-    config?: ApiRequestConfig
-  ): Promise<T> => {
-    return makeRequest(endpoint, { method: 'DELETE' }, config);
-  }, [makeRequest]);
+  const del = useCallback(
+    async (endpoint: string, config?: ApiRequestConfig): Promise<T> => {
+      return makeRequest(endpoint, { method: "DELETE" }, config);
+    },
+    [makeRequest]
+  );
 
   // Reset state
   const reset = useCallback(() => {

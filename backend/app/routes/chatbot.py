@@ -5,6 +5,19 @@ Advanced chatbot with conversation management and healthcare-specific responses
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import Dict, Any
+import logging
+from fastapi import FastAPI
+
+# Create a logger instance
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO) # Set the desired logging level
+
+console_handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+
+# Add the handler to the logger
+logger.addHandler(console_handler)
 
 from app.models.chatbot import (
     ChatBotMessage,
@@ -37,14 +50,16 @@ async def send_message(message_data: ChatBotMessage):
     """Send a message to the chatbot and get a response"""
     try:
         # If no session_id provided, create a new session
+        logger.info("No session ID provided... creating session ID.")
         if not message_data.session_id:
             session_id = chatbot_service.create_session(message_data.user_id)
         else:
             session_id = message_data.session_id
+        logger.info("Created session ID... process the message")
 
         # Process the message
         result = await chatbot_service.process_message(session_id, message_data.message)
-
+        logger.info(result)
         if "error" in result:
             if result.get("suggested_action") == "start_new_session":
                 # Auto-create new session and retry

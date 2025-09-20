@@ -11,6 +11,9 @@ from pydantic import BaseModel
 from fastapi import Query
 import uvicorn
 
+# Import chatbot router from organized structure
+from app.routes.chatbot import router as chatbot_router
+
 load_dotenv()
 
 app = FastAPI(
@@ -84,6 +87,9 @@ async def health_check():
         "google_maps": "configured" if os.getenv("GOOGLE_MAPS_API_KEY") else "not configured",
         "gemini": "configured" if os.getenv("GEMINI_API_KEY") else "not configured"
     }}
+
+# Include chatbot router
+app.include_router(chatbot_router)
 
 @app.get("/clinics")
 async def get_all_clinics(limit: Optional[int] = Query(20, description="Maximum number of clinics to return", le=100)):

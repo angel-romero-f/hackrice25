@@ -28,3 +28,4 @@ class Clinic(BaseModel):
     immigrant_safe: bool = False
     website: Optional[str] = None
     notes: Optional[str] = None
+    image_urls: Optional[List[str]] = None

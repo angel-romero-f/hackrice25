@@ -29,7 +29,7 @@ To connect uninsured individuals to affordable healthcare by providing:
 - **Deployment**: Vercel
 
 ### Key Dependencies
-- Backend: `fastapi`, `uvicorn`, `pymongo`, `google-generativeai`, `googlemaps`
+- Backend: `fastapi`, `uvicorn`, `pymongo`, `google-generativeai`, `googlemaps`, `google-cloud-storage`
 - Frontend: `react`, `next`, `@tanstack/react-query`, `axios`, `lucide-react`
 
 ## Architecture Overview
@@ -98,6 +98,8 @@ npm run lint
 - `MONGODB_URI` - MongoDB Atlas connection string
 - `GOOGLE_MAPS_API_KEY` - For geocoding and maps
 - `GEMINI_API_KEY` - For AI chat functionality
+- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID for storage
+- `GOOGLE_CLOUD_STORAGE_BUCKET` - Storage bucket name (default: care-compass-photos)
 
 ### Frontend (.env.local)
 - `NEXT_PUBLIC_API_URL` - Backend API URL (default: http://localhost:8000)
@@ -136,6 +138,9 @@ npm run lint
 - ✅ Clinic data seeding system implementation (seeder.py completed)
 - ✅ Geospatial search with MongoDB working correctly
 - ✅ Refactored code into organized folder structure for team development
+- ✅ Google Maps Photos integration with Cloud Storage caching
+- ✅ Interactive photo galleries in clinic search results
+- ✅ Responsive clinic cards with visual previews
 - 🔄 Weekly automated data refresh system
 - 🔄 API integration between frontend/backend
 - 🔄 Gemini API setup
@@ -211,6 +216,7 @@ hackrice25/
 - The reason pip isn't working is because you need to have activated the virtual environment. please try it with this in mind and remember this in the claude.md file
 - Don't put the comments of the directories at the top of the files
 - Don't use emojis in comments
+- Don't use emojis in logs or console output
 
 ## MongoDB Query Fixes Applied
 - **Database Name**: Fixed mismatch between seeder.py (`carecompass`) and main.py (`care_compass`) - now both use `carecompass`
@@ -220,3 +226,14 @@ hackrice25/
 - **Data Structure**: Clinic data includes GeoJSON Point coordinates for proper geospatial indexing
 - **Radius Filtering**: Properly converts miles to meters and filters results within specified radius
 - **Search Endpoint**: Use POST `/clinics/search` instead of GET with query params for better frontend integration
+- Remember to alwasys test http requests with HTTPie, not curl.
+
+## Photo Integration Implementation Notes
+- **Google Cloud Storage**: Photos are cached in `care-compass-photos` bucket with public read access
+- **Photo Processing**: Limited to 3 photos per clinic during seeding to manage API costs
+- **Authentication**: Uses Application Default Credentials for local development (`gcloud auth application-default login`)
+- **Legacy Places API**: Required to be enabled in Google Cloud Console for photo access
+- **Database Indexes**: MongoDB creates geospatial, text search, and filter indexes for performance
+- **Error Handling**: Photo failures don't block clinic seeding - clinics added with empty image_urls arrays
+- **Cloud Run Ready**: Service account permissions configured for production deployment
+- **API Integration**: All existing endpoints now return `image_urls` field in clinic responses

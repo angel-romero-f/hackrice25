@@ -13,7 +13,7 @@ from enum import Enum
 import google.generativeai as genai
 import googlemaps
 from app.config import GEMINI_API_KEY, GOOGLE_MAPS_API_KEY
-from app.services.database import clinics_collection
+from app.services.database import clinics_collection, chat_sessions_collection
 
 class ConversationState(Enum):
     """States for tracking conversation context"""
@@ -52,6 +52,57 @@ class ChatSession:
     created_at: datetime
     last_activity: datetime
     is_active: bool = True
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert session to dictionary for MongoDB storage"""
+        return {
+            "session_id": self.session_id,
+            "user_id": self.user_id,
+            "messages": [
+                {
+                    "id": msg.id,
+                    "content": msg.content,
+                    "role": msg.role,
+                    "timestamp": msg.timestamp,
+                    "intent": msg.intent,
+                    "context_data": msg.context_data
+                } for msg in self.messages
+            ],
+            "current_state": self.current_state.value,
+            "user_location": self.user_location,
+            "user_preferences": self.user_preferences,
+            "session_data": self.session_data,
+            "created_at": self.created_at,
+            "last_activity": self.last_activity,
+            "is_active": self.is_active
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ChatSession':
+        """Create ChatSession from MongoDB document"""
+        messages = []
+        for msg_data in data.get("messages", []):
+            messages.append(ChatMessage(
+                id=msg_data["id"],
+                content=msg_data["content"],
+                role=msg_data["role"],
+                timestamp=msg_data["timestamp"],
+                intent=msg_data.get("intent"),
+                context_data=msg_data.get("context_data")
+            ))
+
+        return cls(
+            session_id=data["session_id"],
+            user_id=data.get("user_id"),
+            messages=messages,
+            current_state=ConversationState(data["current_state"]),
+            user_location=data.get("user_location"),
+            user_preferences=data.get("user_preferences", {}),
+            session_data=data.get("session_data", {}),
+            created_at=data["created_at"],
+            last_activity=data["last_activity"],
+            is_active=data.get("is_active", True)
+        )
 
 
 class HealthcareIntentClassifier:
@@ -197,6 +248,39 @@ class ChatBotService:
         # Prompt templates
         self.prompts = PromptTemplates()
 
+    def _save_session_to_db(self, session: ChatSession) -> None:
+        """Save session to MongoDB"""
+        try:
+            if chat_sessions_collection is not None:
+                session_doc = session.to_dict()
+                chat_sessions_collection.replace_one(
+                    {"session_id": session.session_id},
+                    session_doc,
+                    upsert=True
+                )
+        except Exception as e:
+            print(f"Error saving session to database: {e}")
+
+    def _load_session_from_db(self, session_id: str) -> Optional[ChatSession]:
+        """Load session from MongoDB"""
+        try:
+            if chat_sessions_collection is not None:
+                session_doc = chat_sessions_collection.find_one({"session_id": session_id})
+                if session_doc:
+                    return ChatSession.from_dict(session_doc)
+            return None
+        except Exception as e:
+            print(f"Error loading session from database: {e}")
+            return None
+
+    def _delete_session_from_db(self, session_id: str) -> None:
+        """Delete session from MongoDB"""
+        try:
+            if chat_sessions_collection is not None:
+                chat_sessions_collection.delete_one({"session_id": session_id})
+        except Exception as e:
+            print(f"Error deleting session from database: {e}")
+
     def create_session(self, user_id: Optional[str] = None) -> str:
         """Create a new chat session"""
         session_id = str(uuid.uuid4())
@@ -213,12 +297,22 @@ class ChatBotService:
             last_activity=datetime.utcnow()
         )
 
+        # Save to both memory (for caching) and database (for persistence)
         self.active_sessions[session_id] = session
+        self._save_session_to_db(session)
         return session_id
 
     def get_session(self, session_id: str) -> Optional[ChatSession]:
-        """Retrieve and validate session"""
+        """Retrieve and validate session from memory cache or database"""
+        # First, try to get from memory cache
         session = self.active_sessions.get(session_id)
+
+        # If not in memory, try loading from database
+        if not session:
+            session = self._load_session_from_db(session_id)
+            if session:
+                # Add back to memory cache for faster access
+                self.active_sessions[session_id] = session
 
         if not session:
             return None
@@ -234,6 +328,9 @@ class ChatBotService:
         """Clean up expired or closed session"""
         if session_id in self.active_sessions:
             del self.active_sessions[session_id]
+
+        # Also remove from database
+        self._delete_session_from_db(session_id)
 
     def update_session_activity(self, session: ChatSession) -> None:
         """Update session last activity timestamp"""
@@ -255,6 +352,9 @@ class ChatBotService:
         # Keep only last 20 messages to manage memory
         if len(session.messages) > 20:
             session.messages = session.messages[-20:]
+
+        # Save updated session to database
+        self._save_session_to_db(session)
 
         return message
 
@@ -810,12 +910,23 @@ The more specific you can be with the clinic name, the better information I can 
         expired_sessions = []
         cutoff_time = datetime.utcnow() - timedelta(minutes=self.session_timeout_minutes)
 
+        # Clean up from memory cache
         for session_id, session in self.active_sessions.items():
             if session.last_activity < cutoff_time:
                 expired_sessions.append(session_id)
 
         for session_id in expired_sessions:
             del self.active_sessions[session_id]
+
+        # Clean up expired sessions from database (beyond TTL)
+        if chat_sessions_collection is not None:
+            try:
+                db_result = chat_sessions_collection.delete_many({
+                    "last_activity": {"$lt": cutoff_time}
+                })
+                print(f"Cleaned up {db_result.deleted_count} expired sessions from database")
+            except Exception as e:
+                print(f"Error cleaning up database sessions: {e}")
 
         return len(expired_sessions)
 

@@ -28,6 +28,19 @@ if mongo_client:
     except Exception:
         db = mongo_client["carecompass"]
     clinics_collection = db["clinics"]
+    chat_sessions_collection = db["chat_sessions"]
+
+    # Create TTL index for automatic session cleanup (expires after 24 hours)
+    try:
+        chat_sessions_collection.create_index(
+            "last_activity",
+            expireAfterSeconds=86400  # 24 hours in seconds
+        )
+        print("TTL index created for chat_sessions collection")
+    except Exception as e:
+        print(f"Note: TTL index creation: {e}")
+
 else:
     db = None
     clinics_collection = None
+    chat_sessions_collection = None

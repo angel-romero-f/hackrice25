@@ -9,6 +9,8 @@ router = APIRouter()
 @router.get("/clinics")
 async def get_all_clinics(limit: Optional[int] = Query(20, description="Maximum number of clinics to return", le=100)):
     """Get all clinics without location filtering"""
+    if clinics_collection is None:
+        raise HTTPException(status_code=503, detail="Database connection not available")
     try:
         clinics = list(clinics_collection.find({}, {"_id": 0}).limit(limit))
         return clinics
@@ -18,6 +20,8 @@ async def get_all_clinics(limit: Optional[int] = Query(20, description="Maximum 
 @router.post("/clinics/search")
 async def search_clinics_filtered(search: ClinicSearch):
     """Search for clinics based on location and detailed filters"""
+    if clinics_collection is None:
+        raise HTTPException(status_code=503, detail="Database connection not available")
     try:
         # Geocode the location
         geocode_result = gmaps.geocode(search.location)
@@ -79,6 +83,8 @@ async def search_clinics_filtered(search: ClinicSearch):
 @router.post("/clinics")
 async def add_clinic(clinic: Clinic):
     """Add a new clinic to the database"""
+    if clinics_collection is None:
+        raise HTTPException(status_code=503, detail="Database connection not available")
     try:
         clinic_dict = clinic.dict()
         result = clinics_collection.insert_one(clinic_dict)
@@ -89,6 +95,8 @@ async def add_clinic(clinic: Clinic):
 @router.get("/clinics/{clinic_id}")
 async def get_clinic(clinic_id: str):
     """Get detailed information about a specific clinic"""
+    if clinics_collection is None:
+        raise HTTPException(status_code=503, detail="Database connection not available")
     try:
         from bson import ObjectId
         clinic = clinics_collection.find_one({"_id": ObjectId(clinic_id)}, {"_id": 0})

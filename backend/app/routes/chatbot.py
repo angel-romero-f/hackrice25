@@ -197,7 +197,7 @@ async def quick_insurance_help(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to provide insurance help: {str(e)}")
 
-@router.post("/clinic-analysis/{clinic_name}")
+@router.get("/clinic-analysis/{clinic_name}")
 async def analyze_clinic_reviews(clinic_name: str, force_refresh: bool = False):
     """Analyze clinic reviews with caching support"""
     try:

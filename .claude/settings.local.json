@@ -21,7 +21,9 @@
       "Bash(npm run dev:*)",
       "mcp__playwright__browser_fill_form",
       "Bash(curl:*)",
-      "mcp__playwright__browser_evaluate"
+      "mcp__playwright__browser_evaluate",
+      "Bash(vercel)",
+      "Bash(vercel:*)"
     ],
     "deny": [],
     "ask": []

@@ -35,6 +35,13 @@ interface GetRequestParams {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Debug logging for environment variable
+console.log('Environment check:', {
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  API_BASE_URL: API_BASE_URL,
+  NODE_ENV: process.env.NODE_ENV
+});
+
 const useApi = <T = unknown>() => {
   const [state, setState] = useState<ApiState<T>>({
     data: null,
@@ -75,13 +82,20 @@ const useApi = <T = unknown>() => {
         ? setTimeout(() => controller.abort(), config.timeout)
         : null;
 
+      // Properly construct URL by removing trailing slash from base and leading slash from url if both exist
+      const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+      const endpoint = url.startsWith('/') ? url : `/${url}`;
+      const fullUrl = `${baseUrl}${endpoint}`;
+
       try {
         const defaultHeaders = {
           "Content-Type": "application/json",
           ...config.headers,
         };
 
-        const response = await fetch(`${API_BASE_URL}${url}`, {
+        console.log('Making request to:', fullUrl); // Debug log
+
+        const response = await fetch(fullUrl, {
           ...options,
           headers: defaultHeaders,
           signal: controller.signal,
@@ -108,10 +122,18 @@ const useApi = <T = unknown>() => {
         if (error instanceof Error) {
           if (error.name === "AbortError") {
             errorMessage = "Request timeout";
+          } else if (error.message.includes('Failed to fetch')) {
+            errorMessage = `Network error: Unable to connect to ${API_BASE_URL}. Please check your internet connection.`;
           } else {
             errorMessage = error.message;
           }
         }
+
+        console.error('API request failed:', {
+          url: fullUrl,
+          error: error,
+          message: errorMessage
+        });
 
         setState((prev) => ({ ...prev, loading: false, error: errorMessage }));
         throw error;

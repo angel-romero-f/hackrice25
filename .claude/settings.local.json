@@ -23,7 +23,8 @@
       "Bash(curl:*)",
       "mcp__playwright__browser_evaluate",
       "Bash(vercel)",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "Bash(cp:*)"
     ],
     "deny": [],
     "ask": []

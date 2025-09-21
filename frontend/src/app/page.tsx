@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Heart, Search, ChevronDown } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function HomePage() {
   const [zipCode, setZipCode] = useState('');
@@ -51,7 +52,13 @@ export default function HomePage() {
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-18 py-4">
             <div className="flex items-center space-x-3">
-              <Heart className="h-7 w-7 text-blue-600" />
+              <Image
+                src="/careCompass.png"
+                alt="Care Compass Logo"
+                width={28}
+                height={28}
+                className="h-7 w-7"
+              />
               <h1 className="text-2xl font-bold text-gray-900">Care Compass</h1>
             </div>
             <nav className="hidden md:flex space-x-10">

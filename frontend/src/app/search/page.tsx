@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Filter, Star, Clock, Heart, ArrowLeft, Users, Shield, MapPin, X } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import ClinicList from '../../components/ClinicList';
 import GoogleMap from '../../components/GoogleMap';
 import useClinics from '../../hooks/useClinics';
@@ -123,7 +124,13 @@ function SearchContent() {
                 <span>Back</span>
               </Link>
               <div className="border-l border-gray-300 h-6 mx-3"></div>
-              <Heart className="h-6 w-6 text-blue-600" />
+              <Image
+                src="/careCompass.png"
+                alt="Care Compass Logo"
+                width={24}
+                height={24}
+                className="h-6 w-6"
+              />
               <h1 className="text-xl font-bold text-gray-900">Care Compass</h1>
             </div>
             <div className="flex items-center space-x-2">

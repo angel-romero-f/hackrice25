@@ -3,28 +3,7 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { MapPin } from 'lucide-react';
 
-interface Clinic {
-  _id: string;
-  name: string;
-  address: string;
-  phone?: string;
-  services: string[];
-  pricing_info?: string;
-  languages: string[];
-  hours?: string;
-  walk_in_accepted: boolean;
-  lgbtq_friendly: boolean;
-  immigrant_safe: boolean;
-  website?: string;
-  notes?: string;
-  distance_meters?: number;
-  rating?: number;
-  user_ratings_total?: number;
-  location?: {
-    type: 'Point';
-    coordinates: [number, number];
-  };
-}
+import { Clinic } from '../hooks/useClinics';
 
 interface GoogleMapProps {
   clinics: Clinic[];

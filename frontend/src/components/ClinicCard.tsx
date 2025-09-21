@@ -1,15 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { MapPin, Phone, Globe, Users, Shield, CheckCircle, Star, Clock, Heart } from 'lucide-react';
 import { Clinic } from '../hooks/useClinics';
+import ClinicDetailsModal from './ClinicDetailsModal';
 
 interface ClinicCardProps {
   clinic: Clinic;
 }
 
 export default function ClinicCard({ clinic }: ClinicCardProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const formatDistance = (meters?: number) => {
     if (!meters) return '';
     const miles = meters * 0.000621371;
@@ -54,10 +57,11 @@ export default function ClinicCard({ clinic }: ClinicCardProps) {
   };
 
   return (
-    <div
-      id={`clinic-${clinic._id}`}
-      className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 hover:border-blue-300 w-full max-w-full overflow-hidden min-w-0"
-    >
+    <>
+      <div
+        id={`clinic-${clinic._id}`}
+        className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 hover:border-blue-300 w-full max-w-full overflow-hidden min-w-0"
+      >
       <div className="p-6">
         {/* Header with image */}
         <div className="flex flex-col sm:flex-row gap-4 mb-4">
@@ -207,12 +211,23 @@ export default function ClinicCard({ clinic }: ClinicCardProps) {
               Directions
             </button>
           </div>
-          <button className="text-gray-500 hover:text-gray-700 text-sm flex items-center self-start sm:self-auto">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="text-gray-500 hover:text-gray-700 text-sm flex items-center self-start sm:self-auto hover:bg-gray-50 px-2 py-1 rounded transition-colors"
+          >
             View Details
             <span className="ml-1">→</span>
           </button>
         </div>
       </div>
-    </div>
+      </div>
+
+      {/* Clinic Details Modal */}
+      <ClinicDetailsModal
+        clinic={clinic}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+    </>
   );
 }

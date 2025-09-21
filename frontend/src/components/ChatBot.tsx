@@ -157,11 +157,11 @@ const ChatBot: React.FC = () => {
   }, [endSession]);
 
   const renderMessage = (msg: ChatMessage) => {
-    const base = 'px-3 py-2 rounded-lg max-w-[80%] whitespace-pre-wrap';
+    const base = 'px-2 py-1.5 rounded-lg max-w-[85%] whitespace-pre-wrap';
     if (msg.role === 'user') {
       return (
         <div key={msg.id} className="flex justify-end">
-          <div className={`${base} bg-blue-600 text-white`}>{msg.text}</div>
+          <div className={`${base} bg-blue-600 text-white text-sm leading-tight`}>{msg.text}</div>
         </div>
       );
     }
@@ -177,10 +177,21 @@ const ChatBot: React.FC = () => {
     return (
       <div key={msg.id} className="flex items-start gap-2">
         <div className="mt-0.5 text-blue-600">
-          <Bot className="h-4 w-4" />
+          <Bot className="h-3 w-3" />
         </div>
-        <div className={`${base} bg-gray-100 text-gray-800 prose prose-sm max-w-none`}>
-          <ReactMarkdown>{msg.text}</ReactMarkdown>
+        <div className={`${base} bg-gray-100 text-gray-800 prose-xs max-w-none leading-tight`}>
+          <div className="text-xs leading-tight">
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p className="mb-1.5 text-xs leading-tight">{children}</p>,
+                ul: ({ children }) => <ul className="mb-1.5 ml-3 list-disc text-xs leading-tight">{children}</ul>,
+                ol: ({ children }) => <ol className="mb-1.5 ml-3 list-decimal text-xs leading-tight">{children}</ol>,
+                li: ({ children }) => <li className="mb-0.5 text-xs leading-tight">{children}</li>,
+              }}
+            >
+              {msg.text}
+            </ReactMarkdown>
+          </div>
         </div>
       </div>
     );

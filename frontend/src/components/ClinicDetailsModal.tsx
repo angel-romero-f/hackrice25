@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Star, MapPin, Phone, Globe, Clock, Heart, Shield, Users, Loader2, AlertCircle } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { Clinic } from '../hooks/useClinics';
 
 interface ClinicDetailsModalProps {
@@ -219,10 +220,8 @@ export default function ClinicDetailsModal({ clinic, isOpen, onClose }: ClinicDe
                   <span>{error}</span>
                 </div>
               ) : reviewAnalysis ? (
-                <div className="prose prose-sm max-w-none">
-                  <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                    {reviewAnalysis}
-                  </div>
+                <div className="prose prose-sm max-w-none text-gray-700">
+                  <ReactMarkdown>{reviewAnalysis}</ReactMarkdown>
                 </div>
               ) : (
                 <div className="text-gray-500 py-4">

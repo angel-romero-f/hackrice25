@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Filter, Star, Clock, DollarSign, Heart, ArrowLeft, Users, Shield, MapPin } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Filter, Star, Clock, DollarSign, Heart, ArrowLeft, Users, Shield, MapPin, X } from 'lucide-react';
 import Link from 'next/link';
 import ClinicList from '../../components/ClinicList';
 import useClinics from '../../hooks/useClinics';
@@ -37,6 +37,7 @@ const mapHealthIssueToServices = (healthIssue: string): string[] => {
 
 function SearchContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const zipCode = searchParams.get('zip') || '';
   const healthIssue = searchParams.get('issue') || '';
 
@@ -82,6 +83,13 @@ function SearchContent() {
       performSearch();
     }
   }, [zipCode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-search when filters change
+  useEffect(() => {
+    if (zipCode) {
+      performSearch();
+    }
+  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const performSearch = async () => {
     try {
@@ -147,6 +155,128 @@ function SearchContent() {
         </div>
       </div>
 
+      {/* Active Filters */}
+      {(filters.services.length > 0 || filters.languages.length > 0 || filters.walkInsOnly || filters.lgbtqFriendly || filters.immigrantSafe || filters.pricingType !== 'all' || filters.minRating > 0) && (
+        <div className="bg-gray-50 border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Active filters:</span>
+
+              {/* Service filters */}
+              {filters.services.map((service) => (
+                <span key={service} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
+                  {service}
+                  <button
+                    onClick={() => setFilters({...filters, services: filters.services.filter(s => s !== service)})}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+
+              {/* Language filters */}
+              {filters.languages.map((language) => (
+                <span key={language} className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 text-sm font-medium rounded-full">
+                  {language}
+                  <button
+                    onClick={() => setFilters({...filters, languages: filters.languages.filter(l => l !== language)})}
+                    className="text-purple-600 hover:text-purple-800"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+
+              {/* Special accommodation filters */}
+              {filters.walkInsOnly && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                  Walk-ins accepted
+                  <button
+                    onClick={() => setFilters({...filters, walkInsOnly: false})}
+                    className="text-green-600 hover:text-green-800"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+
+              {filters.lgbtqFriendly && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-pink-100 text-pink-800 text-sm font-medium rounded-full">
+                  LGBTQ+ friendly
+                  <button
+                    onClick={() => setFilters({...filters, lgbtqFriendly: false})}
+                    className="text-pink-600 hover:text-pink-800"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+
+              {filters.immigrantSafe && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                  Immigrant safe
+                  <button
+                    onClick={() => setFilters({...filters, immigrantSafe: false})}
+                    className="text-green-600 hover:text-green-800"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+
+              {/* Pricing filter */}
+              {filters.pricingType !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
+                  {pricingOptions.find(p => p.value === filters.pricingType)?.label}
+                  <button
+                    onClick={() => setFilters({...filters, pricingType: 'all'})}
+                    className="text-yellow-600 hover:text-yellow-800"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+
+              {/* Rating filter */}
+              {filters.minRating > 0 && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full">
+                  {filters.minRating}+ stars
+                  <button
+                    onClick={() => setFilters({...filters, minRating: 0})}
+                    className="text-orange-600 hover:text-orange-800"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+
+              {/* Clear all filters button */}
+              <button
+                onClick={() => {
+                  // Clear all filters
+                  setFilters({
+                    services: [],
+                    languages: [],
+                    walkInsOnly: false,
+                    lgbtqFriendly: false,
+                    immigrantSafe: false,
+                    maxDistance: 25,
+                    minRating: 0,
+                    pricingType: 'all'
+                  });
+                  // Also clear URL parameters to "forget" landing page selection
+                  router.replace(`/search?zip=${zipCode}`);
+                }}
+                className="text-sm text-gray-600 hover:text-gray-800 underline"
+              >
+                Clear all
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex flex-col xl:flex-row gap-6 overflow-hidden">
           {/* Filters Sidebar */}
@@ -156,10 +286,9 @@ function SearchContent() {
                 <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
                 <button
                   onClick={() => {
-                    // Reset to initial health condition if it exists
-                    const initialServices = healthIssue ? mapHealthIssueToServices(healthIssue) : [];
+                    // Clear all filters including initial health condition
                     setFilters({
-                      services: initialServices,
+                      services: [],
                       languages: [],
                       walkInsOnly: false,
                       lgbtqFriendly: false,
@@ -168,6 +297,8 @@ function SearchContent() {
                       minRating: 0,
                       pricingType: 'all'
                     });
+                    // Also clear URL parameters to "forget" landing page selection
+                    router.replace(`/search?zip=${zipCode}`);
                   }}
                   className="text-sm text-blue-600 hover:text-blue-800"
                 >

@@ -93,7 +93,6 @@ export default function ClinicCard({ clinic }: ClinicCardProps) {
                 <h3 className="text-xl font-semibold text-gray-900 break-words">
                   {clinic.name}
                 </h3>
-                {clinic.rating && renderStars(clinic.rating)}
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center text-gray-600 text-sm mb-3 gap-2">
@@ -134,12 +133,17 @@ export default function ClinicCard({ clinic }: ClinicCardProps) {
 
             {/* Pricing */}
             <div className="text-left sm:text-right flex-shrink-0">
-              <div className="text-lg font-semibold text-green-600 mb-1">
+              <div className="text-base font-semibold text-green-600 mb-1">
                 {extractPrice(clinic.pricing_info)}
               </div>
-              {clinic.user_ratings_total && (
-                <div className="text-sm text-gray-500">
-                  {clinic.user_ratings_total} reviews
+              {(clinic.user_ratings_total || clinic.rating) && (
+                <div className="flex items-center justify-start sm:justify-end gap-2">
+                  {clinic.rating && renderStars(clinic.rating)}
+                  {clinic.user_ratings_total && (
+                    <span className="text-sm text-gray-500">
+                      {clinic.user_ratings_total} reviews
+                    </span>
+                  )}
                 </div>
               )}
             </div>

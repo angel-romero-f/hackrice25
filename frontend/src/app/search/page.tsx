@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Filter, Star, Clock, DollarSign, Heart, ArrowLeft, Users, Shield, MapPin, X } from 'lucide-react';
+import { Filter, Star, Clock, Heart, ArrowLeft, Users, Shield, MapPin, X } from 'lucide-react';
 import Link from 'next/link';
 import ClinicList from '../../components/ClinicList';
+import GoogleMap from '../../components/GoogleMap';
 import useClinics from '../../hooks/useClinics';
 
 interface FilterState {
@@ -16,6 +17,8 @@ interface FilterState {
   maxDistance: number;
   minRating: number;
   pricingType: string;
+  minPrice: number;
+  maxPrice: number;
 }
 
 // Health condition mapping from landing page to filter services
@@ -54,7 +57,9 @@ function SearchContent() {
       immigrantSafe: false,
       maxDistance: 25,
       minRating: 0,
-      pricingType: 'all'
+      pricingType: 'all',
+      minPrice: 0,
+      maxPrice: 200
     };
   });
   const [showFilters, setShowFilters] = useState(false);
@@ -71,12 +76,6 @@ function SearchContent() {
     'English', 'Spanish', 'Vietnamese', 'Arabic', 'Multiple languages with interpreters'
   ];
 
-  const pricingOptions = [
-    { value: 'all', label: 'All pricing options' },
-    { value: 'free', label: 'Free services' },
-    { value: 'sliding_scale', label: 'Sliding scale/income-based' },
-    { value: 'fixed_price', label: 'Fixed self-pay pricing' }
-  ];
 
   useEffect(() => {
     if (zipCode) {
@@ -101,7 +100,6 @@ function SearchContent() {
         lgbtq_friendly: filters.lgbtqFriendly ? true : undefined,
         immigrant_safe: filters.immigrantSafe ? true : undefined,
         languages: filters.languages.length > 0 ? filters.languages : undefined,
-        pricing_type: filters.pricingType !== 'all' ? filters.pricingType : undefined,
         min_rating: filters.minRating > 0 ? filters.minRating : undefined,
       });
     } catch (error) {
@@ -117,7 +115,7 @@ function SearchContent() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
@@ -131,7 +129,7 @@ function SearchContent() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="md:hidden flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                className="lg:hidden flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
                 <Filter className="h-4 w-4" />
                 <span>Filters</span>
@@ -143,22 +141,20 @@ function SearchContent() {
 
       {/* Search Summary */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {healthIssue} in {zipCode}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {loading ? 'Searching...' : `${filteredClinics.length} healthcare providers found`}
-            </p>
-          </div>
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {healthIssue} in {zipCode}
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            {loading ? 'Searching...' : `${filteredClinics.length} healthcare providers found`}
+          </p>
         </div>
       </div>
 
       {/* Active Filters */}
-      {(filters.services.length > 0 || filters.languages.length > 0 || filters.walkInsOnly || filters.lgbtqFriendly || filters.immigrantSafe || filters.pricingType !== 'all' || filters.minRating > 0) && (
+      {(filters.services.length > 0 || filters.languages.length > 0 || filters.walkInsOnly || filters.lgbtqFriendly || filters.immigrantSafe || filters.minRating > 0 || filters.maxPrice < 200) && (
         <div className="bg-gray-50 border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Active filters:</span>
 
@@ -225,18 +221,6 @@ function SearchContent() {
                 </span>
               )}
 
-              {/* Pricing filter */}
-              {filters.pricingType !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
-                  {pricingOptions.find(p => p.value === filters.pricingType)?.label}
-                  <button
-                    onClick={() => setFilters({...filters, pricingType: 'all'})}
-                    className="text-yellow-600 hover:text-yellow-800"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              )}
 
               {/* Rating filter */}
               {filters.minRating > 0 && (
@@ -245,6 +229,19 @@ function SearchContent() {
                   <button
                     onClick={() => setFilters({...filters, minRating: 0})}
                     className="text-orange-600 hover:text-orange-800"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+
+              {/* Price range filter */}
+              {filters.maxPrice < 200 && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 text-sm font-medium rounded-full">
+                  Up to ${filters.maxPrice}
+                  <button
+                    onClick={() => setFilters({...filters, maxPrice: 200})}
+                    className="text-emerald-600 hover:text-emerald-800"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -263,7 +260,9 @@ function SearchContent() {
                     immigrantSafe: false,
                     maxDistance: 25,
                     minRating: 0,
-                    pricingType: 'all'
+                    pricingType: 'all',
+                    minPrice: 0,
+                    maxPrice: 200
                   });
                   // Also clear URL parameters to "forget" landing page selection
                   router.replace(`/search?zip=${zipCode}`);
@@ -277,11 +276,11 @@ function SearchContent() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col xl:flex-row gap-6 overflow-hidden">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col lg:flex-row gap-6 overflow-hidden">
           {/* Filters Sidebar */}
-          <div className={`xl:w-80 xl:flex-shrink-0 ${showFilters ? 'block' : 'hidden xl:block'}`}>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+          <div className={`lg:w-64 lg:flex-shrink-0 ${showFilters ? 'block' : 'hidden lg:block'}`}>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6 h-[calc(100vh-16rem)] overflow-y-auto">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
                 <button
@@ -295,7 +294,9 @@ function SearchContent() {
                       immigrantSafe: false,
                       maxDistance: 25,
                       minRating: 0,
-                      pricingType: 'all'
+                      pricingType: 'all',
+                      minPrice: 0,
+                      maxPrice: 200
                     });
                     // Also clear URL parameters to "forget" landing page selection
                     router.replace(`/search?zip=${zipCode}`);
@@ -354,28 +355,35 @@ function SearchContent() {
                 </div>
               </div>
 
-              {/* Pricing Type */}
+              {/* Price Range */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  <DollarSign className="h-4 w-4 inline mr-1" />
-                  Pricing Options
+                  Price Range
                 </label>
-                <div className="space-y-2">
-                  {pricingOptions.map((option) => (
-                    <label key={option.value} className="flex items-center">
-                      <input
-                        type="radio"
-                        name="pricing"
-                        value={option.value}
-                        checked={filters.pricingType === option.value}
-                        onChange={(e) => setFilters({...filters, pricingType: e.target.value})}
-                        className="border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
-                      />
-                      <span className="text-sm text-gray-700">{option.label}</span>
-                    </label>
-                  ))}
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm font-medium text-gray-900 w-8">
+                    $0
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    step="5"
+                    value={filters.maxPrice}
+                    onChange={(e) => setFilters({...filters, maxPrice: parseInt(e.target.value)})}
+                    className="flex-1"
+                  />
+                  <span className="text-sm font-medium text-gray-900 w-12">
+                    $200
+                  </span>
+                </div>
+                <div className="text-center mt-2">
+                  <span className="text-sm text-gray-600">
+                    Up to ${filters.maxPrice}
+                  </span>
                 </div>
               </div>
+
 
               {/* Languages */}
               <div>
@@ -489,12 +497,34 @@ function SearchContent() {
             </div>
           </div>
 
-          {/* Results List - Full width */}
-          <div className="w-full">
-            <ClinicList
-              clinics={filteredClinics}
-              loading={loading}
-            />
+          {/* Main Content Area - Clinic List and Map */}
+          <div className="flex-1 flex flex-col lg:flex-row gap-6">
+            {/* Clinic List */}
+            <div className="w-full lg:w-2/3">
+              <div className="h-[calc(100vh-16rem)] overflow-y-auto bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <ClinicList
+                  clinics={filteredClinics}
+                  loading={loading}
+                />
+              </div>
+            </div>
+
+            {/* Map */}
+            <div className="w-full lg:w-1/3">
+              <GoogleMap
+                clinics={filteredClinics}
+                userLocation={zipCode ? undefined : { lat: 29.7604, lng: -95.3698 }}
+                height="calc(100vh - 16rem)"
+                className="w-full"
+                onMarkerClick={(clinic) => {
+                  // Scroll to clinic in list when marker is clicked
+                  const clinicElement = document.getElementById(`clinic-${clinic._id}`);
+                  if (clinicElement) {
+                    clinicElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>

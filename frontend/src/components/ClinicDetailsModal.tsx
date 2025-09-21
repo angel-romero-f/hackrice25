@@ -208,23 +208,35 @@ export default function ClinicDetailsModal({ clinic, isOpen, onClose }: ClinicDe
           {/* Review Analysis */}
           <div>
             <h4 className="font-medium text-gray-900 mb-3">Patient Reviews & Experiences</h4>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
               {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
-                  <span className="text-gray-600">Analyzing patient reviews...</span>
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-blue-600 mr-2" />
+                  <span className="text-sm text-gray-600">Analyzing patient reviews...</span>
                 </div>
               ) : error ? (
-                <div className="flex items-center text-red-600 py-4">
-                  <AlertCircle className="h-5 w-5 mr-2" />
-                  <span>{error}</span>
+                <div className="flex items-center text-red-600 py-3">
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  <span className="text-sm">{error}</span>
                 </div>
               ) : reviewAnalysis ? (
-                <div className="prose prose-sm max-w-none text-gray-700">
-                  <ReactMarkdown>{reviewAnalysis}</ReactMarkdown>
+                <div className="text-sm text-gray-700 leading-tight max-h-60 overflow-y-auto">
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="mb-2 text-sm leading-tight">{children}</p>,
+                      ul: ({ children }) => <ul className="mb-2 ml-3 list-disc text-sm leading-tight">{children}</ul>,
+                      ol: ({ children }) => <ol className="mb-2 ml-3 list-decimal text-sm leading-tight">{children}</ol>,
+                      li: ({ children }) => <li className="mb-0.5 text-sm leading-tight">{children}</li>,
+                      h1: ({ children }) => <h1 className="text-base font-semibold mb-2 text-gray-900">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-sm font-semibold mb-2 text-gray-900">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-medium mb-1 text-gray-900">{children}</h3>,
+                    }}
+                  >
+                    {reviewAnalysis}
+                  </ReactMarkdown>
                 </div>
               ) : (
-                <div className="text-gray-500 py-4">
+                <div className="text-gray-500 py-3 text-sm">
                   No review analysis available for this clinic.
                 </div>
               )}
